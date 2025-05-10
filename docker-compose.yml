@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: orbitune-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: whitecode
+      POSTGRES_DB: orbitune
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  backend:
+    build: ./backend
+    container_name: orbitune-backend
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:whitecode@db:5432/orbitune
+    depends_on:
+      - db
+
+  frontend:
+    build: ./frontend
+    container_name: orbitune-frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+    # command: sh -c "npm run dev -- --debug || tail -f /dev/null"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
