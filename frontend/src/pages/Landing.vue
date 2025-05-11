@@ -11,14 +11,23 @@
         </div>
         <button class="slide-btn right" @click="nextSlide"></button>
       </section>
+      
+      <div class="content-divider">
 
+      </div>
       <!-- Application Article -->
       <section class="app-article">
         <div class="img-placeholder"></div>
         <div class="text-content">
-          <h2>Orbitune Application</h2>
+          <h2>Orbitune</h2>
+          <!-- Тут нужно сделать цитату со специальной стилизацией -->
           <p>
-            Добро пожаловать в Orbitune! Здесь будет описание приложения, его возможностей и преимуществ.
+            Your music universe
+            Be on your own orbite.
+          </p>
+          <!-- А здесь описание возможностей сервиса и зачем он нужен -->
+          <p>
+            
           </p>
         </div>
       </section>
@@ -39,9 +48,18 @@ import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 
 const slides = [
-  { title: 'Слайд 1', text: 'Описание первого слайда Orbitune.' },
-  { title: 'Слайд 2', text: 'Описание второго слайда Orbitune.' },
-  { title: 'Слайд 3', text: 'Описание третьего слайда Orbitune.' },
+  { 
+    title: 'One link. Every platform.', 
+    text: 'Mix and listen music from different platforms.'
+  },
+  { 
+    title: 'Transfer. Discover. Repeat.', 
+    text: 'Transfer playlists to your favorite service.\nSearch for music through all platforms.'
+  },
+  { 
+    title: 'Your sound. Everywhere.', 
+    text: 'Share your music with your friends regardless of the restrictions.'
+  },
 ]
 const currentSlide = ref(0)
 let interval = null
@@ -54,7 +72,7 @@ function prevSlide() {
 }
 
 onMounted(() => {
-  interval = setInterval(nextSlide, 10000)
+  interval = setInterval(nextSlide, 5000)
 })
 onUnmounted(() => {
   clearInterval(interval)
@@ -67,7 +85,6 @@ const user = ref(null) // для теста можно заменить на { n
 <style scoped>
 .feature-slides {
   position: relative;
-  width: 100vw;
   height: 420px;
   display: flex;
   align-items: center;
@@ -91,11 +108,19 @@ const user = ref(null) // для теста можно заменить на { n
   width: 100%;
   z-index: 1;
 }
+
+.content-divider {
+  display: flexbox;
+  content: "";
+  height: 120px;
+  padding: 20px 0;
+}
+
 .app-article {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 60px 0;
+  padding: 40px 0;
   gap: 40px;
 }
 .img-placeholder {
@@ -109,7 +134,7 @@ const user = ref(null) // для теста можно заменить на { n
 }
 .welcome-section {
   text-align: center;
-  padding: 60px 0 40px 0;
+  padding: 40px 0 60px 0;
 }
 .register-btn {
   display: inline-block;

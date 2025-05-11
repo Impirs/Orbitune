@@ -10,8 +10,7 @@
 
 <style scoped>
 .footer {
-  width: 100vw;
-  min-height: 400px;
+  min-height: 200px;
   background: #222;
   color: #fff;
   display: flex;

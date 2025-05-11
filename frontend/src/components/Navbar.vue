@@ -11,10 +11,12 @@
         <router-link to="/register" class="nav-btn">Register</router-link>
       </template>
       <template v-else>
-        <input class="search-input" placeholder="Поиск..." />
-        <span class="user-name">{{ user.name }}</span>
-        <div class="user-icon"></div>
-        <button class="settings-btn">
+        <input class="search-input" placeholder="Search..." />
+        <div class="user-placeholder">
+          <span class="user-name">{{ user.name }}</span>
+          <div class="user-icon"></div>
+        </div>
+        <button @click="logout" class="exit-btn">
           <div class="icon-placeholder"></div>
         </button>
       </template>
@@ -23,6 +25,18 @@
 </template>
 
 <script setup>
+import { useUserStore } from '../stores/user';
+import { useRouter } from 'vue-router';
+
+const userStore = useUserStore();
+const router = useRouter();
+const currentUser = userStore.currentUser;
+
+function logout() {
+  userStore.logout()
+  router.push('/')
+}
+
 defineProps({
   user: Object
 })
@@ -32,8 +46,7 @@ defineProps({
 .navbar {
   position: sticky;
   top: 0;
-  width: calc(100vw - 80px);
-  height: 64px;
+  height: 48px;
   background: #fff;
   display: flex;
   align-items: center;
@@ -51,8 +64,8 @@ defineProps({
   align-items: center;
 }
 .icon-placeholder {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   background: #ff4444;
   border-radius: 8px;
 }
@@ -73,24 +86,31 @@ defineProps({
   border: 1px solid #eee;
   font-size: 1em;
 }
+.user-placeholder {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  width: fit-content;
+}
 .user-name {
   margin-left: 16px;
   font-weight: bold;
 }
 .user-icon {
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   background: #ff4444;
-  border-radius: 8px;
+  border-radius: 50%;
   margin-left: 12px;
 }
-.settings-btn {
+
+.exit-btn {
   background: none;
   border: none;
   margin-left: 12px;
   cursor: pointer;
 }
-.settings-btn .icon-placeholder {
+.exit-btn .icon-placeholder {
   width: 28px;
   height: 28px;
   background: #ff4444;
