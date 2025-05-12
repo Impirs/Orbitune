@@ -37,11 +37,6 @@ const currentComponent = computed(() => componentMap[selected.value])
 function onSelect(name) {
   selected.value = name
 }
-
-function logout() {
-  userStore.logout()
-  router.push('/')
-}
 </script>
 
 <style scoped>
@@ -59,7 +54,7 @@ function logout() {
 .userhome-content {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 100%; /* 48px navbar, 200px footer */
+  min-height: 100%;
   background: #faf9f9;
   overflow-y: auto;
   padding: 0;

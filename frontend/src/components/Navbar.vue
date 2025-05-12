@@ -6,14 +6,14 @@
       </router-link>
     </div>
     <div class="navbar-right">
-      <template v-if="!user">
-        <router-link to="/login" class="nav-btn">Login</router-link>
-        <router-link to="/register" class="nav-btn">Register</router-link>
+      <template v-if="!userStore.isLoggedIn">
+        <router-link to="/auth?mode=login" class="nav-btn">Login</router-link>
+        <router-link to="/auth?mode=register" class="nav-btn">Register</router-link>
       </template>
       <template v-else>
         <input class="search-input" placeholder="Search..." />
         <div class="user-placeholder">
-          <span class="user-name">{{ user.name }}</span>
+          <span class="user-name">{{ userStore.currentUser?.nickname || userStore.currentUser?.name }}</span>
           <div class="user-icon"></div>
         </div>
         <button @click="logout" class="exit-btn">
@@ -30,16 +30,11 @@ import { useRouter } from 'vue-router';
 
 const userStore = useUserStore();
 const router = useRouter();
-const currentUser = userStore.currentUser;
 
 function logout() {
-  userStore.logout()
-  router.push('/')
+  userStore.logout();
+  router.push('/');
 }
-
-defineProps({
-  user: Object
-})
 </script>
 
 <style scoped>

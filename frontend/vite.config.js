@@ -11,10 +11,22 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
+      '/auth': {
+        target: 'http://backend:8000',
         changeOrigin: true,
-      }
+      },
+      '/oauth': {
+        target: 'http://backend:8000',
+        changeOrigin: true,
+      },
+      '/connected_services': {
+        target: 'http://backend:8000',
+        changeOrigin: true,
+      },
+      '/favorites': {
+        target: 'http://backend:8000',
+        changeOrigin: true,
+      },
     }
   }
 })

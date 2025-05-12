@@ -1,6 +1,6 @@
 <template>
   <div>
-    <Navbar :user="user" />
+    <Navbar :user="userStore.currentUser" />
     <main>
       <!-- Feature Slides -->
       <section class="feature-slides">
@@ -35,7 +35,8 @@
       <!-- Welcome Section -->
       <section class="welcome-section">
         <h1>Welcome to Orbitune</h1>
-        <router-link to="/auth" class="register-btn">Зарегистрироваться</router-link>
+        <router-link to="/auth?mode=register" class="register-btn">Зарегистрироваться</router-link>
+        <router-link to="/auth?mode=login" class="register-btn" style="margin-left: 16px;">Войти</router-link>
       </section>
     </main>
     <Footer />
@@ -46,6 +47,9 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
+import { useUserStore } from '../stores/user'
+
+const userStore = useUserStore()
 
 const slides = [
   { 

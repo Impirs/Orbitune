@@ -5,6 +5,7 @@ frontend/.env.*
 
 # Python
 backend/venv/
+backend/alembic/
 backend/__pycache__/
 backend/app/__pycache__/
 backend/app/models/__pycache__/
