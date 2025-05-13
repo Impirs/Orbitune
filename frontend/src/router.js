@@ -22,8 +22,19 @@ router.beforeEach((to, from, next) => {
     userStore.initialize();
   }
 
+  // Если пользователь залогинен, всегда разрешаем доступ к /:user/home
+  if (to.path.match(/^\/[\w-]+\/home/)) {
+    if (!userStore.isLoggedIn) {
+      userStore.initialize();
+      if (!userStore.isLoggedIn) {
+        return next('/auth');
+      }
+    }
+    return next();
+  }
+
   if (to.path === '/' && userStore.isLoggedIn) {
-    return next(`/${userStore.currentUser}/home`);
+    return next(`/${userStore.currentUser.nickname || userStore.currentUser}/home`);
   }
 
   if (to.path === '/auth') {

@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.sessions import SessionMiddleware
-from app.routers import auth, favorites, oauth, connected_services
+from app.routers import auth, favorites, oauth, connected_services, playlists
 from fastapi.openapi.utils import get_openapi
 import os
 import logging
@@ -24,6 +24,7 @@ app.include_router(auth.router, prefix="/auth", tags=["Auth"])
 app.include_router(favorites.router, prefix="/favorites", tags=["Favorites"])
 app.include_router(oauth.router)
 app.include_router(connected_services.router)
+app.include_router(playlists.router, prefix="/playlists", tags=["Playlists"])
 
 @app.get("/", include_in_schema=False)
 def root():

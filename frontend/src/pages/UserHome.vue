@@ -12,24 +12,31 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 import Sidebar from '../components/Sidebar.vue'
-import HomeContent from './HomeContent.vue'
-import PlaylistsContent from './PlaylistsContent.vue'
-import SettingsContent from './SettingsContent.vue'
+
+import HomeContent from './Content_Home.vue'
+import PlaylistsContent from './Content_Playlists.vue'
+import SettingsContent from './Content_Settings.vue'
+import PlatformsContent from './Content_Platforms.vue'
+import PlayerContent from './Content_Player.vue'
+
+import { ref, computed, watch } from 'vue'
 import { useUserStore } from '../stores/user'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 
 const userStore = useUserStore()
 const router = useRouter()
+const route = useRoute()
 const user = computed(() => userStore.currentUser ? { name: userStore.currentUser } : null)
 
 const selected = ref('Home')
 const componentMap = {
   Home: HomeContent,
   Playlists: PlaylistsContent,
+  Player: PlayerContent,
+  Platforms: PlatformsContent,
   Settings: SettingsContent,
 }
 const currentComponent = computed(() => componentMap[selected.value])
@@ -37,6 +44,13 @@ const currentComponent = computed(() => componentMap[selected.value])
 function onSelect(name) {
   selected.value = name
 }
+
+// Автоматический переход в Player по query
+watch(() => route.query, (q) => {
+  if (q.player) {
+    selected.value = 'Player'
+  }
+})
 </script>
 
 <style scoped>

@@ -33,7 +33,7 @@ def spotify_login(request: StarletteRequest):
 def spotify_callback(request: StarletteRequest, db: Session = Depends(get_db)):
     code = request.query_params.get("code")
     if not code:
-        raise HTTPException(status_code=400, detail="No code provided")
+        return RedirectResponse("http://127.0.0.1:5173/auth?oauth=fail&platform=spotify&reason=no_code")
     token_url = "https://accounts.spotify.com/api/token"
     data = {
         "grant_type": "authorization_code",
@@ -44,16 +44,21 @@ def spotify_callback(request: StarletteRequest, db: Session = Depends(get_db)):
     }
     resp = requests.post(token_url, data=data)
     if resp.status_code != 200:
-        raise HTTPException(status_code=400, detail="Failed to get token")
+        return RedirectResponse(f"http://127.0.0.1:5173/auth?oauth=fail&platform=spotify&reason=token_error")
     tokens = resp.json()
-    access_token = tokens["access_token"]
+    access_token = tokens.get("access_token")
     refresh_token = tokens.get("refresh_token")
-    # Получаем инфо о пользователе
+    if not access_token:
+        return RedirectResponse(f"http://127.0.0.1:5173/auth?oauth=fail&platform=spotify&reason=no_access_token")
     userinfo = requests.get("https://api.spotify.com/v1/me", headers={"Authorization": f"Bearer {access_token}"}).json()
-    external_user_id = userinfo["id"]
-    # Получаем user_id из сессии
+    external_user_id = userinfo.get("id")
+    if not external_user_id:
+        return RedirectResponse(f"http://127.0.0.1:5173/auth?oauth=fail&platform=spotify&reason=no_external_user_id")
     user_id = request.session.get("user_id")
     if not user_id:
-        raise HTTPException(status_code=401, detail="User not authenticated")
+        return RedirectResponse("http://127.0.0.1:5173/auth?oauth=fail&platform=spotify&reason=no_user_id")
     add_connected_service(db, user_id, "spotify", external_user_id, access_token, refresh_token)
-    return {"msg": "Spotify account connected"}
+    from app.models.models import User
+    user = db.query(User).filter_by(id=user_id).first()
+    nickname = user.nickname if user else "home"
+    return RedirectResponse(f"http://127.0.0.1:5173/{nickname}/home?oauth=success&platform=spotify")

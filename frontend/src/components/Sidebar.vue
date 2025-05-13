@@ -17,7 +17,9 @@ const props = defineProps({
 const items = [
   { name: 'Home', label: 'Home' },
   { name: 'Playlists', label: 'Playlists' },
-  { name: 'Settings', label: 'Settings' },
+  { name: 'Player', label: 'Player' },
+  { name: 'Platforms', label: 'Platforms' },
+  { name: 'Settings', label: 'Settings' }
 ]
 </script>
 
