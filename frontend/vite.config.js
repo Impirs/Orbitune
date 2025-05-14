@@ -12,7 +12,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/auth': {
-        target: 'http://backend:8000',
+        target: 'http://backend:8000',  
         changeOrigin: true,
       },
       '/oauth': {
@@ -26,6 +26,10 @@ export default defineConfig({
       '/favorites': {
         target: 'http://backend:8000',
         changeOrigin: true,
+      },
+      '/playlists': { 
+        target: 'http://backend:8000', 
+        changeOrigin: true 
       },
     }
   }

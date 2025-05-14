@@ -1,38 +1,42 @@
 <template>
   <div class="content-playlists">
-    <h2>Playlists</h2>
+    <h2>Spotify</h2>
     <div v-if="userStore.loading" class="loader">Loading playlists...</div>
     <div v-else-if="userStore.error" class="error-block">{{ userStore.error }}</div>
-    <template v-else-if="!userStore.playlists || Object.keys(userStore.playlists).length === 0">
-      <div>No playlists found.</div>
-    </template>
-    <template v-else>
-      <div v-for="(pls, service) in userStore.playlists" :key="service" class="playlist-service-block">
-        <h3>{{ service.charAt(0).toUpperCase() + service.slice(1) }}</h3>
-        <ul>
-          <li v-for="pl in pls" :key="pl.id" @click="openPlaylist(service, pl)">
-            <div class="playlist-title">{{ pl.title }}</div>
-            <div class="playlist-platform">Platform: {{ pl.source_platform || service }}</div>
-          </li>
-        </ul>
+    <div v-else>
+      <div v-if="!spotifyPlaylists || spotifyPlaylists.length === 0" class="no-playlists">No Playlists available</div>
+      <div v-else class="playlist-list-block">
+        <div v-for="pl in spotifyPlaylists" :key="pl.id" class="playlist-row" @click="openPlaylist('spotify', pl)">
+          <div class="playlist-title">{{ pl.title }}</div>
+          <div class="playlist-tracks">
+            <template v-if="typeof pl.tracks_count === 'number'">
+              <span v-if="pl.tracks_count === undefined">...</span>
+              <span v-else>{{ pl.tracks_count }} tracks</span>
+            </template>
+            <template v-else>
+              ...
+            </template>
+          </div>
+        </div>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { onMounted, computed } from 'vue';
 import { useUserStore } from '../stores/user';
 import { useRouter } from 'vue-router';
 const userStore = useUserStore();
 const router = useRouter();
+
+const spotifyPlaylists = computed(() => userStore.playlists['spotify'] || []);
 
 onMounted(() => {
   userStore.fetchPlaylists();
 });
 
 function openPlaylist(service, playlist) {
-  // Переход в Player с передачей id плейлиста и сервиса
   router.push({ name: 'UserHome', query: { player: 1, service, playlistId: playlist.id } });
 }
 </script>
@@ -50,32 +54,47 @@ function openPlaylist(service, playlist) {
   margin: 24px 0;
   font-weight: bold;
 }
-.playlist-service-block {
-  margin-bottom: 28px;
+.no-playlists {
+  color: #fff;
+  background: #222b36;
+  border-radius: 18px;
+  padding: 32px 0;
+  text-align: center;
+  font-size: 1.2em;
+  margin-top: 32px;
 }
-ul {
-  margin-top: 8px;
-  padding: 0;
-  list-style: none;
+.playlist-list-block {
+  background: #19202a;
+  border-radius: 32px;
+  padding: 24px 0 12px 0;
+  margin-top: 0;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
 }
-li {
-  background: #fff;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  padding: 16px 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+.playlist-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 32px;
+  border-bottom: 1px solid #2c3440;
   cursor: pointer;
+  font-size: 1.25em;
+  font-weight: bold;
+  color: #fff;
   transition: background 0.15s;
 }
-li:hover {
-  background: #ffeaea;
+.playlist-row:last-child {
+  border-bottom: none;
+}
+.playlist-row:hover {
+  background: #263a2e;
 }
 .playlist-title {
+  font-size: 1.35em;
   font-weight: bold;
-  font-size: 1.1em;
 }
-.playlist-platform {
-  color: #888;
-  font-size: 0.95em;
+.playlist-tracks {
+  font-size: 1em;
+  color: #fff;
+  opacity: 0.8;
 }
 </style>

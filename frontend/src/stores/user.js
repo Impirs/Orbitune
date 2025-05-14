@@ -12,6 +12,14 @@ export const useUserStore = defineStore('user', {
     error: '',     // глобальная ошибка
   }),
   actions: {
+    async syncSpotify() {
+      if (!this.currentUser) return;
+      try {
+        await fetch(`/connected_services/sync?user_id=${this.currentUser.id}`, { method: 'POST' });
+      } catch (e) {
+        // ignore
+      }
+    },
     async login(email, password) {
       try {
         console.log('[LOGIN] Sending:', { email, password });
@@ -21,9 +29,10 @@ export const useUserStore = defineStore('user', {
         this.isLoggedIn = true;
         this.saveSession();
         await this.fetchConnectedServices();
+        console.log('[SYNC] Calling syncSpotify for user', this.currentUser?.id);
+        await this.syncSpotify();
         return { ok: true };
       } catch (e) {
-        // Подробный лог для диагностики
         console.error('[LOGIN] Error object:', e);
         let msg = 'Unknown error';
         if (e?.response?.data?.detail) msg = e.response.data.detail;
@@ -43,7 +52,6 @@ export const useUserStore = defineStore('user', {
         await this.fetchConnectedServices();
         return { ok: true };
       } catch (e) {
-        // Подробный лог для диагностики
         console.error('[REGISTER] Error object:', e);
         let msg = 'Unknown error';
         if (e?.response?.data?.detail) msg = e.response.data.detail;
@@ -76,32 +84,55 @@ export const useUserStore = defineStore('user', {
       }
     },
     async fetchPlaylists() {
-      if (!this.currentUser) return;
+      if (!this.currentUser || !this.currentUser.id) {
+        this.error = 'User not logged in or user_id missing';
+        return;
+      }
       this.loading = true;
       this.error = '';
       try {
+        // Быстрая загрузка только списка плейлистов
         const res = await axios.get('/playlists', { params: { user_id: this.currentUser.id }, withCredentials: true });
-        if (Array.isArray(res.data)) {
-          this.playlists = { orbitune: res.data };
-        } else {
-          this.playlists = res.data;
-        }
+        const basePlaylists = res.data.playlists || [];
+        // Сразу отображаем список без треков и количества
+        this.playlists = { spotify: basePlaylists };
+        // Асинхронно подгружаем количество треков и треки для каждого плейлиста
+        basePlaylists.forEach(async (pl, idx) => {
+          try {
+            const tracksRes = await axios.get(`/playlists/${pl.id}/tracks`, { withCredentials: true });
+            // Обновляем только нужный плейлист
+            if (this.playlists.spotify[idx] && tracksRes.data) {
+              this.playlists.spotify[idx] = {
+                ...this.playlists.spotify[idx],
+                tracks: tracksRes.data.tracks,
+                tracks_count: tracksRes.data.tracks_count
+              };
+            }
+          } catch (e) {
+            // Не блокируем загрузку, просто не обновляем треки
+          }
+        });
         await this.fetchFavorites();
       } catch (e) {
         this.error = e?.response?.data?.detail || e?.message || 'Failed to load playlists';
+        console.error('[fetchPlaylists] Error:', e);
       } finally {
         this.loading = false;
       }
     },
     async fetchFavorites() {
-      if (!this.currentUser) return;
+      if (!this.currentUser || !this.currentUser.id) {
+        this.error = 'User not logged in or user_id missing';
+        return;
+      }
       this.loading = true;
       this.error = '';
       try {
         const res = await axios.get('/favorites', { params: { user_id: this.currentUser.id }, withCredentials: true });
-        this.favorites = res.data;
+        this.favorites = res.data.tracks || [];
       } catch (e) {
         this.error = e?.response?.data?.detail || e?.message || 'Failed to load favorites';
+        console.error('[fetchFavorites] Error:', e);
       } finally {
         this.loading = false;
       }

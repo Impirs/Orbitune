@@ -29,7 +29,7 @@ services:
       - SPOTIFY_REDIRECT_URI=http://127.0.0.1:8000/oauth/spotify/callback
       - GOOGLE_CLIENT_ID=961432994040-om76p7kmmuv4b2f1d344uvgisubtn26q.apps.googleusercontent.com
       - GOOGLE_CLIENT_SECRET=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
-      - GOOGLE_REDIRECT_URI=http://localhost:8000/oauth/google/callback
+      - GOOGLE_REDIRECT_URI=http://127.0.0.1:8000/oauth/google/callback
       - YANDEX_CLIENT_ID=47eba5a3dd804e449400b37d0e674a94
       - YANDEX_CLIENT_SECRET=64732b3865404fd888bf2e298eab04cd
       - YANDEX_REDIRECT_URI=http://127.0.0.1:8000/oauth/yandex/callback

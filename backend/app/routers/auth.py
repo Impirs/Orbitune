@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.routers.crud import create_user, get_user_by_email, get_user_by_nickname
@@ -7,6 +7,7 @@ import random
 from email_validator import validate_email, EmailNotValidError
 from pydantic import BaseModel
 import logging
+import json
 
 router = APIRouter()
 
@@ -22,7 +23,7 @@ class LoginRequest(BaseModel):
     password: str
 
 @router.post("/register")
-async def register(data: RegisterRequest, db: Session = Depends(get_db)):
+async def register(data: RegisterRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     logging.info(f"[REGISTER] Received: {data}")
     email = data.email
     password = data.password
@@ -58,11 +59,17 @@ async def register(data: RegisterRequest, db: Session = Depends(get_db)):
     if not user:
         logging.error(f"[REGISTER] Nickname or email already exists: {email}, {nickname}")
         raise HTTPException(status_code=409, detail="Nickname or email already exists")
+    
+    # Set user in session
+    request.session["user_id"] = user.id
+    request.session["user_email"] = user.email
+    request.session["user_nickname"] = user.nickname
+    
     logging.info(f"[REGISTER] User created: {user.email}, {user.nickname}, admin={user.is_admin}")
     return {"user": {"id": user.id, "email": user.email, "nickname": user.nickname, "is_admin": user.is_admin}}
 
 @router.post("/login")
-async def login(data: LoginRequest, request: Request, db: Session = Depends(get_db)):
+async def login(data: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
     try:
         logging.info(f"[LOGIN] Received: {data}")
         email = data.email
@@ -75,9 +82,44 @@ async def login(data: LoginRequest, request: Request, db: Session = Depends(get_
         if not bcrypt.verify(password, user.password_hash):
             logging.warning(f"[LOGIN] Invalid password for: {email}")
             raise HTTPException(status_code=401, detail="Invalid password")
+        
+        # Set user in session
         request.session["user_id"] = user.id
+        request.session["user_email"] = user.email
+        request.session["user_nickname"] = user.nickname
+        
         logging.info(f"[LOGIN] Success: {user.email}, {user.nickname}, admin={user.is_admin}")
         return {"user": {"id": user.id, "email": user.email, "nickname": user.nickname, "is_admin": user.is_admin}}
     except Exception as e:
         logging.error(f"[LOGIN] Internal error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
+
+@router.post("/logout")
+async def logout(request: Request, response: Response):
+    try:
+        # Clear user from session
+        request.session.pop("user_id", None)
+        request.session.pop("user_email", None)
+        request.session.pop("user_nickname", None)
+        return {"success": True}
+    except Exception as e:
+        logging.error(f"[LOGOUT] Internal error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Internal server error: {e}")
+
+@router.get("/session")
+async def get_session(request: Request):
+    """Debug endpoint to check session state"""
+    try:
+        user_id = request.session.get("user_id")
+        user_email = request.session.get("user_email")
+        user_nickname = request.session.get("user_nickname")
+        
+        return {
+            "user_id": user_id,
+            "user_email": user_email,
+            "user_nickname": user_nickname,
+            "is_authenticated": user_id is not None
+        }
+    except Exception as e:
+        logging.error(f"[SESSION] Internal error: {e}", exc_info=True)
+        return {"error": str(e)}

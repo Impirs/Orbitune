@@ -41,14 +41,42 @@ const componentMap = {
 }
 const currentComponent = computed(() => componentMap[selected.value])
 
-function onSelect(name) {
-  selected.value = name
+// Синхронизация selected <-> query.tab
+function setTab(tab) {
+  selected.value = tab in componentMap ? tab : 'Home';
+  // если tab не совпадает — fallback
 }
+
+// При выборе в сайдбаре — меняем query
+function onSelect(name) {
+  if (name !== selected.value) {
+    router.push({
+      path: route.path,
+      query: { tab: name } // только tab, без player/playlists/service
+    });
+  }
+  selected.value = name;
+}
+
+// Следим за query.tab
+watch(
+  () => route.query.tab,
+  (tab) => {
+    if (tab && tab !== selected.value) setTab(tab);
+  },
+  { immediate: true }
+);
 
 // Автоматический переход в Player по query
 watch(() => route.query, (q) => {
   if (q.player) {
-    selected.value = 'Player'
+    setTab('Player');
+  } else if (q.playlists) {
+    setTab('Playlists');
+  } else if (q.settings) {
+    setTab('Settings');
+  } else if (q.tab) {
+    setTab(q.tab);
   }
 })
 </script>

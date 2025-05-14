@@ -44,8 +44,6 @@ class Track(Base):
     platforms_available = Column(JSONB)
 
     playlist_tracks = relationship('PlaylistTrack', back_populates='track')
-    favorites = relationship('UserFavorite', back_populates='track')
-    availability = relationship('TrackAvailability', back_populates='track')
 
 
 class UserPlaylist(Base):
@@ -57,6 +55,7 @@ class UserPlaylist(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
     source_platform = Column(String)
     is_mixed = Column(Boolean, default=False)
+    external_id = Column(String)  # Spotify playlist id
 
     user = relationship('User', back_populates='playlists')
     tracks = relationship('PlaylistTrack', back_populates='playlist')
@@ -78,19 +77,10 @@ class UserFavorite(Base):
     __tablename__ = 'user_favorites'
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    track_id = Column(Integer, ForeignKey('tracks.id'), nullable=False)
+    playlist_id = Column(String, nullable=False)  # Spotify playlist id (for liked songs)
+    external_id = Column(String)
+    title = Column(String)
+    description = Column(String)
     platform = Column(String)
 
     user = relationship('User', back_populates='favorites')
-    track = relationship('Track', back_populates='favorites')
-
-
-class TrackAvailability(Base):
-    __tablename__ = 'track_availability'
-    id = Column(Integer, primary_key=True)
-    track_id = Column(Integer, ForeignKey('tracks.id'), nullable=False)
-    platform = Column(String, nullable=False)
-    is_available = Column(Boolean, default=True)
-    url = Column(String)
-
-    track = relationship('Track', back_populates='availability')
