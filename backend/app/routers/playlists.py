@@ -8,6 +8,18 @@ from typing import List, Dict, Any
 
 router = APIRouter()
 
+@router.post("/sync_spotify")
+def sync_spotify(user_id: int, db: Session = Depends(get_db)):
+    """Явно вызываемый endpoint для синхронизации Spotify"""
+    try:
+        from app.services.platforms import SpotifyService
+        spotify = SpotifyService(db, user_id)
+        spotify.sync_user_playlists_and_favorites()
+        return {"success": True}
+    except Exception as e:
+        logging.error(f"[SYNC_SPOTIFY] Internal error: {e}", exc_info=True)
+        return {"success": False, "error": str(e)}
+
 @router.get("")
 def get_playlists(user_id: int = None, db: Session = Depends(get_db)):
     if not user_id:

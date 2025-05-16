@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, BackgroundTasks
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.routers.crud import create_user, get_user_by_email, get_user_by_nickname
@@ -70,7 +70,7 @@ async def register(data: RegisterRequest, request: Request, response: Response, 
     return {"user": {"id": user.id, "email": user.email, "nickname": user.nickname, "is_admin": user.is_admin}}
 
 @router.post("/login")
-async def login(data: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)):
+async def login(data: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db), background_tasks: BackgroundTasks = None):
     try:
         logging.info(f"[LOGIN] Received: {data}")
         email = data.email
@@ -88,12 +88,19 @@ async def login(data: LoginRequest, request: Request, response: Response, db: Se
         request.session["user_id"] = user.id
         request.session["user_email"] = user.email
         request.session["user_nickname"] = user.nickname
-        # --- Синхронизация всех данных пользователя при входе ---
+        # --- Асинхронная синхронизация Spotify ---
         spotify_service = db.query(ConnectedService).filter_by(user_id=user.id, platform="spotify").first()
-        if spotify_service:
-            from app.services.platforms import SpotifyService
-            spotify = SpotifyService(db, user.id)
-            spotify.sync_user_playlists_and_favorites()
+        if spotify_service and background_tasks is not None:
+            def sync_spotify_bg():
+                from app.services.platforms import SpotifyService
+                try:
+                    logging.info(f"[LOGIN][BG] Start Spotify sync for user_id={user.id}")
+                    spotify = SpotifyService(db, user.id)
+                    spotify.sync_user_playlists_and_favorites()
+                    logging.info(f"[LOGIN][BG] Spotify sync finished for user_id={user.id}")
+                except Exception as e:
+                    logging.error(f"[LOGIN][BG] Spotify sync error: {e}", exc_info=True)
+            background_tasks.add_task(sync_spotify_bg)
         logging.info(f"[LOGIN] Success: {user.email}, {user.nickname}, admin={user.is_admin}")
         return {"user": {"id": user.id, "email": user.email, "nickname": user.nickname, "is_admin": user.is_admin}}
     except Exception as e:

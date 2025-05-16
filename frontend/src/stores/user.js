@@ -12,6 +12,7 @@ export const useUserStore = defineStore('user', {
     error: '',     // глобальная ошибка
     lastSelectedPlaylist: null, // id последнего выбранного плейлиста
     favoritesPlaylistId: null, // id плейлиста избранного (user_playlists.id)
+    loginStage: '', // этап загрузки при логине/регистрации
   }),
   actions: {
     async syncSpotify() {
@@ -23,21 +24,36 @@ export const useUserStore = defineStore('user', {
       }
     },
     async login(email, password) {
+      this.loginStage = 'Sending requests...';
       try {
-        console.log('[LOGIN] Sending:', { email, password });
+        const t0 = performance.now();
         const res = await axios.post('/auth/login', { email, password }, { withCredentials: true });
-        console.log('[LOGIN] Response:', res.data);
+        const t1 = performance.now();
+        console.log(`[LOGIN] Ответ от /auth/login получен за ${(t1 - t0).toFixed(1)} мс`, res.data);
+        this.loginStage = '';
         this.currentUser = res.data.user;
         this.isLoggedIn = true;
         this.saveSession();
-        await this.fetchConnectedServices();
-        console.log('[SYNC] Calling syncSpotify for user', this.currentUser?.id);
-        await this.syncSpotify();
-        await this.fetchPlaylists();
-        await this.fetchFavoritesFull();
+        // Сразу возвращаем успех, UI становится доступен мгновенно
+        setTimeout(() => { this.loginStage = ''; }, 100);
+        // Параллельно грузим все данные, не блокируя UI
+        setTimeout(() => {
+          Promise.allSettled([
+            this.fetchConnectedServices(),
+            this.fetchPlaylists(),
+            this.fetchFavoritesFull(),
+            this.fetchFavoritesPlaylistId()
+          ]).then(() => {
+            // После первой загрузки данных, пробуем повторно обновить плейлисты и избранное через 10-15 сек (после фоновой синхронизации)
+            setTimeout(() => {
+              this.fetchPlaylists();
+              this.fetchFavoritesFull();
+            }, 30000);
+          });
+        }, 0);
         return { ok: true };
       } catch (e) {
-        console.error('[LOGIN] Error object:', e);
+        this.loginStage = '';
         let msg = 'Unknown error';
         if (e?.response?.data?.detail) msg = e.response.data.detail;
         else if (e?.response?.data) msg = JSON.stringify(e.response.data);
@@ -46,19 +62,25 @@ export const useUserStore = defineStore('user', {
       }
     },
     async register(email, password) {
+      this.loginStage = 'Sending requests...';
       try {
-        console.log('[REGISTER] Sending:', { email, password });
         const res = await axios.post('/auth/register', { email, password }, { withCredentials: true });
-        console.log('[REGISTER] Response:', res.data);
+        this.loginStage = '';
         this.currentUser = res.data.user;
         this.isLoggedIn = true;
         this.saveSession();
-        await this.fetchConnectedServices();
-        await this.fetchPlaylists();
-        await this.fetchFavoritesFull();
+        setTimeout(() => { this.loginStage = ''; }, 100);
+        setTimeout(() => {
+          Promise.allSettled([
+            this.fetchConnectedServices(),
+            this.fetchPlaylists(),
+            this.fetchFavoritesFull(),
+            this.fetchFavoritesPlaylistId()
+          ]);
+        }, 0);
         return { ok: true };
       } catch (e) {
-        console.error('[REGISTER] Error object:', e);
+        this.loginStage = '';
         let msg = 'Unknown error';
         if (e?.response?.data?.detail) msg = e.response.data.detail;
         else if (e?.response?.data) msg = JSON.stringify(e.response.data);
@@ -111,17 +133,11 @@ export const useUserStore = defineStore('user', {
         console.log('[fetchPlaylists] Запрос плейлистов...');
         const res = await axios.get('/playlists', { params: { user_id: this.currentUser.id }, withCredentials: true });
         const basePlaylists = res.data.playlists || [];
-        // Для каждого плейлиста сразу подгружаем треки из БД по внутреннему id
-        const playlistsWithTracks = await Promise.all(basePlaylists.map(async (pl) => {
-          try {
-            const tracksRes = await axios.get(`/playlists/${pl.id}/tracks`, { withCredentials: true });
-            return { ...pl, tracks: tracksRes.data.tracks || [], tracks_count: tracksRes.data.tracks_count };
-          } catch (e) {
-            return { ...pl, tracks: [], tracks_count: 0 };
-          }
-        }));
-        this.playlists = { spotify: playlistsWithTracks };
-        console.log('[fetchPlaylists] Получено плейлистов:', playlistsWithTracks.length, playlistsWithTracks.map(p => p.id));
+        this.playlists = { spotify: basePlaylists };
+        // Батч-запрос для количества треков
+        const ids = basePlaylists.map(pl => pl.id);
+        await this.fetchTracksCountBatch(ids);
+        console.log('[fetchPlaylists] Получено плейлистов:', basePlaylists.length, basePlaylists.map(p => p.id));
       } catch (e) {
         this.error = e?.response?.data?.detail || e?.message || 'Failed to load playlists';
         console.error('[fetchPlaylists] Error:', e);
@@ -129,11 +145,33 @@ export const useUserStore = defineStore('user', {
         this.loading = false;
       }
     },
+    async fetchPlaylistTracks(playlistId) {
+      if (!playlistId) return;
+      // Кэш: если уже есть треки, не грузим повторно
+      const pl = this.playlists && this.playlists.spotify && this.playlists.spotify.find(p => String(p.id) === String(playlistId));
+      if (pl && pl.tracks && pl.tracks.length > 0) return;
+      try {
+        const res = await axios.get(`/playlists/${playlistId}/tracks`, { withCredentials: true });
+        // Найти плейлист и добавить ему треки
+        if (this.playlists && this.playlists.spotify) {
+          this.playlists.spotify = this.playlists.spotify.map(pl =>
+            String(pl.id) === String(playlistId)
+              ? { ...pl, tracks: res.data.tracks || [], tracks_count: res.data.tracks_count }
+              : pl
+          );
+        }
+      } catch (e) {
+        console.error('[fetchPlaylistTracks] Error:', e);
+        throw e;
+      }
+    },
     async fetchTracksCountBatch(ids) {
       if (!ids || ids.length === 0) return;
-      console.log('[fetchTracksCountBatch] Отправка ids:', ids);
+      // Приводим все id к строкам (бэкенд ожидает List[str] с embed=True)
+      const idsStr = ids.map(x => String(x));
+      console.log('[fetchTracksCountBatch] Отправка ids:', idsStr);
       try {
-        const res = await axios.post('/playlists/tracks_count_batch', { ids }, { withCredentials: true });
+        const res = await axios.post('/playlists/tracks_count_batch', { ids: idsStr }, { withCredentials: true });
         console.log('[fetchTracksCountBatch] Ответ сервера:', res.data);
         if (res.data && res.data.counts) {
           console.log('[fetchTracksCountBatch] counts:', res.data.counts);

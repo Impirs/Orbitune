@@ -10,13 +10,13 @@
 
 <style scoped>
 .footer {
-  min-height: 200px;
-  background: #222;
-  color: #fff;
+  min-height: 60px;
+  background: #16203640;
+  color: #d0e7ef;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 0;
+  padding: 30px 0;
 }
 .footer-content {
   display: flex;
@@ -27,7 +27,7 @@
 }
 .footer-col {
   flex: 1;
-  min-width: 200px;
+  min-width: 60px;
   text-align: center;
   padding: 20px;
   background: rgba(255,255,255,0.04);

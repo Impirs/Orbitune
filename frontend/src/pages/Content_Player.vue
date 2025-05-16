@@ -9,12 +9,14 @@
     <div v-else>
       <h3 v-if="isFavorites">Favorites</h3>
       <h3 v-else>{{ playlist.title }} <span style="color:#888;font-size:0.9em;">({{ service }})</span></h3>
-      <ul>
+      <div v-if="playlistTracksLoading" class="loader">Loading tracks...</div>
+      <div v-else-if="playlistTracksError" class="error-block">{{ playlistTracksError }}</div>
+      <ul v-else>
         <li v-for="track in tracksToShow" :key="track.id || track.title">
           {{ track.title }} — {{ track.artist }}
         </li>
       </ul>
-      <div v-if="tracksToShow.length === 0" style="color:#888;">No tracks in playlist.</div>
+      <div v-if="tracksToShow.length === 0 && !playlistTracksLoading && !playlistTracksError" style="color:#888;">No tracks in playlist.</div>
       <div v-if="isFavorites && canLoadMore" class="loader" style="text-align:center;">Loading more...</div>
     </div>
   </div>
@@ -92,19 +94,14 @@ function onScroll(e) {
 }
 
 const rootRef = ref(null);
-// --- Восстанавливаем последний выбранный плейлист из localStorage при маунте ---
 onMounted(() => {
-  // Если явно выбран плейлист через query — ничего не делаем
   if (service.value && playlistId.value) {
     userStore.lastSelectedPlaylist = playlistId.value;
   } else {
-    // Если есть сохранённый последний плейлист — выставляем его в query
     const last = localStorage.getItem('lastSelectedPlaylistId');
     if (last && userStore.playlists['spotify'] && userStore.playlists['spotify'].some(pl => String(pl.id) === String(last))) {
-      // Программно выставляем query
       const q = { ...route.query, service: 'spotify', playlistId: last };
       if (!route.query.playlistId || String(route.query.playlistId) !== String(last)) {
-        // Используем router.replace, чтобы не ломать историю
         import('../router').then(({ default: router }) => {
           router.replace({ path: route.path, query: q });
         });
@@ -125,6 +122,28 @@ onUnmounted(() => {
     rootRef.value.removeEventListener('scroll', onScroll);
   }
 });
+
+const playlistTracksLoading = ref(false);
+const playlistTracksError = ref('');
+
+watch(
+  () => [service.value, playlistId.value],
+  async ([s, pid], oldVals) => {
+    // oldVals может быть undefined
+    if (!isFavorites.value && playlist.value && (!playlist.value.tracks || playlist.value.tracks.length === 0)) {
+      playlistTracksLoading.value = true;
+      playlistTracksError.value = '';
+      try {
+        await userStore.fetchPlaylistTracks(playlist.value.id);
+      } catch (e) {
+        playlistTracksError.value = e?.message || 'Failed to load tracks';
+      } finally {
+        playlistTracksLoading.value = false;
+      }
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>

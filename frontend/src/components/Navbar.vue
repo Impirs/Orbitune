@@ -41,12 +41,13 @@ function logout() {
 .navbar {
   position: sticky;
   top: 0;
-  height: 48px;
-  background: #fff;
+  height: 63px;
+  background: #090b17;
   display: flex;
   align-items: center;
   justify-content: space-between;
   box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  border-bottom: 1px solid #162036bf;
   z-index: 100;
   padding: 0 40px;
 }
@@ -59,8 +60,8 @@ function logout() {
   align-items: center;
 }
 .icon-placeholder {
-  width: 32px;
-  height: 32px;
+  width: 48px;
+  height: 48px;
   background: #ff4444;
   border-radius: 8px;
 }
@@ -92,8 +93,8 @@ function logout() {
   font-weight: bold;
 }
 .user-icon {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   background: #ff4444;
   border-radius: 50%;
   margin-left: 12px;
@@ -106,8 +107,8 @@ function logout() {
   cursor: pointer;
 }
 .exit-btn .icon-placeholder {
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   background: #ff4444;
   border-radius: 6px;
 }
