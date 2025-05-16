@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.routers.crud import get_connected_services
-from app.models.models import ConnectedService
+from app.models.models import ConnectedService, UserPlaylist, PlaylistTrack, UserFavorite
 from app.services.platforms import SpotifyService
 import logging
 
@@ -42,10 +42,18 @@ def list_connected_services(user_id: int, db: Session = Depends(get_db)):
 @router.delete("")
 def disconnect_service(user_id: int, platform: str, db: Session = Depends(get_db)):
     try:
-        service = db.query(ConnectedService).filter_by(user_id=user_id, platform=platform).first()
-        if not service:
-            raise HTTPException(status_code=404, detail="Service not found")
-        db.delete(service)
+        # 1. Найти все user_playlists по юзеру и сервису
+        playlists = db.query(UserPlaylist).filter_by(user_id=user_id, source_platform=platform).all()
+        playlist_ids = [pl.id for pl in playlists]
+        # 2. Удалить все playlist_tracks для этих плейлистов
+        if playlist_ids:
+            db.query(PlaylistTrack).filter(PlaylistTrack.playlist_id.in_(playlist_ids)).delete(synchronize_session=False)
+        # 3. Удалить сами user_playlists
+        db.query(UserPlaylist).filter_by(user_id=user_id, source_platform=platform).delete(synchronize_session=False)
+        # 4. Удалить user_favorites по юзеру и сервису
+        db.query(UserFavorite).filter_by(user_id=user_id, platform=platform).delete(synchronize_session=False)
+        # 5. Удалить саму привязку в connected_services
+        db.query(ConnectedService).filter_by(user_id=user_id, platform=platform).delete(synchronize_session=False)
         db.commit()
         return {"ok": True}
     except Exception as e:

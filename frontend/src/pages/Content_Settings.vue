@@ -23,6 +23,8 @@
 <script setup>
 import { onMounted } from 'vue';
 import { useUserStore } from '../stores/user';
+import axios from 'axios';
+
 const userStore = useUserStore();
 
 onMounted(() => {
@@ -39,8 +41,31 @@ function connect(platform) {
   }
 }
 function disconnect(platform) {
-  // TODO: реализовать запрос на отключение сервиса
-  alert('Disconnect ' + platform + ' (реализовать на бэке)');
+  if (!platform) return;
+  if (!confirm('Disconnect ' + platform + '?')) return;
+  userStore.loading = true;
+  userStore.error = '';
+  axios.delete('/connected_services', {
+    params: { user_id: userStore.currentUser.id, platform },
+    withCredentials: true
+  })
+    .then(() => {
+      userStore.fetchConnectedServices();
+      userStore.fetchPlaylists();
+      userStore.fetchFavoritesFull();
+      userStore.error = '';
+      // Если сервисов не осталось — сбрасываем выбранные плейлисты и избранное
+      setTimeout(() => {
+        // Если пользователь остался без сервисов, можно сбросить локальный стор или перейти на главную
+        // location.reload(); // Не требуется, если стор обновляется корректно
+      }, 100);
+    })
+    .catch(e => {
+      userStore.error = e?.response?.data?.detail || e?.message || 'Failed to disconnect';
+    })
+    .finally(() => {
+      userStore.loading = false;
+    });
 }
 </script>
 

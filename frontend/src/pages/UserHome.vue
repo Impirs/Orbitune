@@ -49,10 +49,27 @@ function setTab(tab) {
 
 // При выборе в сайдбаре — меняем query
 function onSelect(name) {
+  // Если выбран Player и есть последний выбранный плейлист — выставляем его явно
+  if (name === 'Player') {
+    const last = localStorage.getItem('lastSelectedPlaylistId');
+    if (last && userStore.playlists['spotify'] && userStore.playlists['spotify'].some(pl => String(pl.id) === String(last))) {
+      router.replace({
+        path: route.path,
+        query: { player: 1, service: 'spotify', playlistId: last }
+      });
+      selected.value = name;
+      return;
+    }
+    // Если нет — просто открыть Player (Favorites)
+    router.replace({ path: route.path, query: { player: 1 } });
+    selected.value = name;
+    return;
+  }
   if (name !== selected.value) {
-    router.push({
+    // При переходе на другие вкладки убираем все query полностью (чистый /home?)
+    router.replace({
       path: route.path,
-      query: { tab: name } // только tab, без player/playlists/service
+      query: {} // полностью очищаем query
     });
   }
   selected.value = name;

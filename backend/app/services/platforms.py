@@ -1,6 +1,7 @@
 import requests
 from app.models.models import ConnectedService
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 class SpotifyService:
     BASE_URL = "https://api.spotify.com/v1"
@@ -145,7 +146,7 @@ class SpotifyService:
 
     def sync_user_playlists_and_favorites(self):
         import logging
-        from app.models.models import UserPlaylist, UserFavorite
+        from app.models.models import UserPlaylist, UserFavorite, Track, PlaylistTrack, TrackAvailability
         logging.info(f"[SYNC] user_id={self.user_id} token={self.token}")
         playlists = self.get_playlists()
         logging.info(f"[SYNC] Получено плейлистов из Spotify: {len(playlists)}")
@@ -156,49 +157,172 @@ class SpotifyService:
         session.flush()
         session.add(UserFavorite(
             user_id=self.user_id,
-            playlist_id=liked["id"],
             external_id=liked["id"],
+            playlist_id=liked["id"],
+            platform="spotify",
             title=liked["title"],
-            description=liked["description"],
-            platform="spotify"
+            description=liked.get("description"),
+            tracks_number=len(self.get_favorite_tracks_all()),
+            updated_at=datetime.utcnow()
         ))
         logging.info(f"[SYNC] Сохранён Liked Songs: {liked['id']}")
-        # Синхронизируем остальные плейлисты (кроме Liked Songs)
+        # Получаем все id плейлистов, которые есть на сервисе
         spotify_ids = set(pl["id"] for pl in playlists if pl["title"].lower() != "liked songs")
         logging.info(f"[SYNC] Spotify playlist ids: {spotify_ids}")
-        # Удаляем из базы те, которых больше нет на платформе
-        deleted = session.query(UserPlaylist).filter(
+        # Удаляем только связи PlaylistTrack для плейлистов, которых больше нет на сервисе
+        db_playlists = session.query(UserPlaylist).filter(
             UserPlaylist.user_id == self.user_id,
-            UserPlaylist.source_platform == "spotify",
-            ~UserPlaylist.external_id.in_(spotify_ids)
-        ).delete(synchronize_session=False)
-        logging.info(f"[SYNC] Удалено старых плейлистов: {deleted}")
+            UserPlaylist.source_platform == "spotify"
+        ).all()
+        for db_pl in db_playlists:
+            if db_pl.external_id not in spotify_ids:
+                # Удаляем только связи PlaylistTrack
+                session.query(PlaylistTrack).filter(PlaylistTrack.playlist_id == db_pl.id).delete()
         session.flush()
-        # Обновляем или добавляем плейлисты
+        # Обновляем или добавляем плейлисты и их треки
         for pl in playlists:
             if pl["title"].lower() == "liked songs":
                 continue
-            db_pl = session.query(UserPlaylist).filter_by(
-                user_id=self.user_id,
-                source_platform="spotify",
-                external_id=pl["id"]
-            ).first()
-            if db_pl:
-                db_pl.title = pl["title"]
-                db_pl.description = pl.get("description", "")
-                logging.info(f"[SYNC] Обновлён плейлист: {pl['id']} {pl['title']}")
-            else:
-                session.add(UserPlaylist(
+            tracks = self.get_playlist_tracks(pl["id"])
+            db_pl = session.query(UserPlaylist).filter_by(user_id=self.user_id, external_id=pl["id"], source_platform="spotify").first()
+            if not db_pl:
+                # Если плейлист не найден в базе, создаём его
+                db_pl = UserPlaylist(
                     user_id=self.user_id,
                     title=pl["title"],
-                    description=pl.get("description", ""),
+                    description=pl.get("description"),
                     source_platform="spotify",
-                    external_id=pl["id"]
+                    external_id=pl["id"],
+                    updated_at=datetime.utcnow(),
+                    image_url=pl.get("cover_url"),
+                    is_public=True,
+                    tracks_number=len(tracks)
+                )
+                session.add(db_pl)
+                session.flush()
+            # Удаляем старые связи PlaylistTrack для этого плейлиста (делаем только один раз перед циклом)
+            session.query(PlaylistTrack).filter(PlaylistTrack.playlist_id == db_pl.id).delete()
+            seen_track_ids = set()
+            for idx, t in enumerate(tracks):
+                db_track = session.query(Track).filter_by(title=t["title"], artist=t["artist"]).first()
+                if not db_track:
+                    db_track = Track(
+                        title=t["title"],
+                        artist=t["artist"],
+                        album=t.get("album"),
+                        duration=t.get("duration"),
+                        image_url=t.get("cover_url")
+                    )
+                    session.add(db_track)
+                    session.flush()
+                # TrackAvailability (обработка дубликатов на уровне сессии)
+                track_avail_key = (db_track.id, "spotify")
+                if not hasattr(self, '_seen_availability'):
+                    self._seen_availability = set()
+                if track_avail_key in self._seen_availability:
+                    continue  # уже обработан в этой сессии
+                self._seen_availability.add(track_avail_key)
+                avail = session.query(TrackAvailability).filter_by(track_id=db_track.id, platform="spotify").first()
+                if not avail:
+                    avail = TrackAvailability(
+                        track_id=db_track.id,
+                        platform="spotify",
+                        external_id=t["id"],
+                        url=None,
+                        available=True
+                    )
+                    session.add(avail)
+                else:
+                    avail.external_id = t["id"]
+                    avail.available = True
+                    avail.last_checked_at = datetime.utcnow()
+                # PlaylistTrack (добавляем только если такого track_id ещё нет для этого плейлиста)
+                if db_track.id not in seen_track_ids:
+                    session.add(PlaylistTrack(
+                        playlist_id=db_pl.id,
+                        platform="spotify",
+                        track_id=db_track.id,
+                        order_index=idx
+                    ))
+                    seen_track_ids.add(db_track.id)
+            session.commit()
+        # --- Liked Songs ---
+        liked_tracks = self.get_favorite_tracks_all()
+        liked_playlist = session.query(UserPlaylist).filter_by(
+            user_id=self.user_id,
+            source_platform="spotify",
+            external_id=liked["id"]
+        ).first()
+        if not liked_playlist:
+            liked_playlist = UserPlaylist(
+                user_id=self.user_id,
+                title=liked["title"],
+                description=liked.get("description"),
+                source_platform="spotify",
+                external_id=liked["id"],
+                updated_at=datetime.utcnow(),
+                image_url=None,
+                is_public=True,
+                tracks_number=len(liked_tracks)
+            )
+            session.add(liked_playlist)
+            session.commit()
+        else:
+            liked_playlist.updated_at = datetime.utcnow()
+            liked_playlist.is_public = True
+            liked_playlist.tracks_number = len(liked_tracks)
+        # Удаляем старые связи PlaylistTrack для Liked Songs
+        session.query(PlaylistTrack).filter(PlaylistTrack.playlist_id == liked_playlist.id).delete()
+        seen_track_ids = set()
+        for idx, t in enumerate(liked_tracks):
+            db_track = session.query(Track).filter_by(title=t["title"], artist=t["artist"]).first()
+            if not db_track:
+                db_track = Track(
+                    title=t["title"],
+                    artist=t["artist"],
+                    album=t.get("album"),
+                    duration=t.get("duration"),
+                    image_url=t.get("cover_url")
+                )
+                session.add(db_track)
+                session.flush()
+            track_avail_key = (db_track.id, "spotify")
+            if not hasattr(self, '_seen_availability'):
+                self._seen_availability = set()
+            if track_avail_key in self._seen_availability:
+                continue
+            self._seen_availability.add(track_avail_key)
+            avail = session.query(TrackAvailability).filter_by(track_id=db_track.id, platform="spotify").first()
+            if not avail:
+                avail = TrackAvailability(
+                    track_id=db_track.id,
+                    platform="spotify",
+                    external_id=t["id"],
+                    url=None,
+                    available=True
+                )
+                session.add(avail)
+            else:
+                avail.external_id = t["id"]
+                avail.available = True
+                avail.last_checked_at = datetime.utcnow()
+            if db_track.id not in seen_track_ids:
+                session.add(PlaylistTrack(
+                    playlist_id=liked_playlist.id,
+                    platform="spotify",
+                    track_id=db_track.id,
+                    order_index=idx
                 ))
-                logging.info(f"[SYNC] Добавлен плейлист: {pl['id']} {pl['title']}")
-                session.commit()  # Явный коммит для отлова ошибок
+                seen_track_ids.add(db_track.id)
+        # Обновляем количество треков в user_favorites
+        fav = session.query(UserFavorite).filter_by(user_id=self.user_id, platform="spotify").first()
+        if fav:
+            fav.tracks_number = len(liked_tracks)
         session.commit()
         logging.info(f"[SYNC] Коммит завершён для user_id={self.user_id}")
+        # После синхронизации сбрасываем set
+        if hasattr(self, '_seen_availability'):
+            del self._seen_availability
 
     def get_liked_songs_count(self):
         # Получить количество песен в Liked Songs

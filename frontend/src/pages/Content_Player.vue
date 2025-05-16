@@ -1,5 +1,5 @@
 <template>
-  <div class="content-player">
+  <div class="content-player" ref="rootRef">
     <h2>Player</h2>
     <div v-if="userStore.loading" class="loader">Loading tracks...</div>
     <div v-else-if="userStore.error" class="error-block">{{ userStore.error }}</div>
@@ -15,12 +15,13 @@
         </li>
       </ul>
       <div v-if="tracksToShow.length === 0" style="color:#888;">No tracks in playlist.</div>
+      <div v-if="isFavorites && canLoadMore" class="loader" style="text-align:center;">Loading more...</div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted, onUnmounted, ref, nextTick, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useUserStore } from '../stores/user';
 const userStore = useUserStore();
@@ -28,15 +29,101 @@ const route = useRoute();
 
 const service = computed(() => route.query.service || '');
 const playlistId = computed(() => route.query.playlistId);
-const isFavorites = computed(() => !service.value && !playlistId.value);
+const favoritesPlaylistId = computed(() => userStore.favoritesPlaylistId);
+
+// --- Сохраняем/восстанавливаем последний выбранный плейлист ---
+const lastSelectedPlaylistId = ref(localStorage.getItem('lastSelectedPlaylistId'));
+watch(
+  () => [service.value, playlistId.value],
+  ([s, pid]) => {
+    if (s && pid) {
+      lastSelectedPlaylistId.value = pid;
+      localStorage.setItem('lastSelectedPlaylistId', pid);
+      userStore.lastSelectedPlaylist = pid;
+    }
+  },
+  { immediate: true }
+);
+
+// --- Корректный выбор плейлиста избранного ---
+const isFavorites = computed(() => {
+  // Если явно выбран плейлист — не favorites
+  if (service.value && playlistId.value) return false;
+  // Если есть favoritesPlaylistId — используем его
+  return true;
+});
+
 const playlist = computed(() => {
+  if (isFavorites.value && favoritesPlaylistId.value) {
+    // Находим плейлист избранного по точному id
+    const pls = userStore.playlists['spotify'] || [];
+    return pls.find(pl => String(pl.id) === String(favoritesPlaylistId.value));
+  }
   if (!service.value || !playlistId.value) return null;
   const pls = userStore.playlists[service.value] || [];
   return pls.find(pl => String(pl.id) === String(playlistId.value));
 });
 const tracksToShow = computed(() => {
-  if (isFavorites.value) return userStore.favorites || [];
-  return playlist.value?.tracks || [];
+  if (isFavorites.value && playlist.value) return playlist.value.tracks || [];
+  if (!isFavorites.value && playlist.value) return playlist.value.tracks || [];
+  return [];
+});
+
+// --- Ленивая подгрузка избранных треков ---
+const favoritesLimit = 50;
+const loadingMore = ref(false);
+const canLoadMore = computed(() => {
+  return isFavorites.value && userStore.favorites && userStore.favorites.length < (userStore.favoritesTotal || 0);
+});
+
+async function loadMoreFavorites() {
+  if (!canLoadMore.value || loadingMore.value) return;
+  loadingMore.value = true;
+  await userStore.fetchFavoritesLazy(userStore.favorites.length, favoritesLimit);
+  loadingMore.value = false;
+}
+
+function onScroll(e) {
+  if (!canLoadMore.value) return;
+  const el = e.target;
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) {
+    loadMoreFavorites();
+  }
+}
+
+const rootRef = ref(null);
+// --- Восстанавливаем последний выбранный плейлист из localStorage при маунте ---
+onMounted(() => {
+  // Если явно выбран плейлист через query — ничего не делаем
+  if (service.value && playlistId.value) {
+    userStore.lastSelectedPlaylist = playlistId.value;
+  } else {
+    // Если есть сохранённый последний плейлист — выставляем его в query
+    const last = localStorage.getItem('lastSelectedPlaylistId');
+    if (last && userStore.playlists['spotify'] && userStore.playlists['spotify'].some(pl => String(pl.id) === String(last))) {
+      // Программно выставляем query
+      const q = { ...route.query, service: 'spotify', playlistId: last };
+      if (!route.query.playlistId || String(route.query.playlistId) !== String(last)) {
+        // Используем router.replace, чтобы не ломать историю
+        import('../router').then(({ default: router }) => {
+          router.replace({ path: route.path, query: q });
+        });
+      }
+    }
+  }
+  if (isFavorites.value) {
+    userStore.fetchFavoritesLazy(0, favoritesLimit);
+  }
+  nextTick(() => {
+    if (rootRef.value) {
+      rootRef.value.addEventListener('scroll', onScroll);
+    }
+  });
+});
+onUnmounted(() => {
+  if (rootRef.value) {
+    rootRef.value.removeEventListener('scroll', onScroll);
+  }
 });
 </script>
 

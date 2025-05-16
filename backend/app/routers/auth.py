@@ -8,6 +8,7 @@ from email_validator import validate_email, EmailNotValidError
 from pydantic import BaseModel
 import logging
 import json
+from app.models.models import ConnectedService
 
 router = APIRouter()
 
@@ -87,7 +88,12 @@ async def login(data: LoginRequest, request: Request, response: Response, db: Se
         request.session["user_id"] = user.id
         request.session["user_email"] = user.email
         request.session["user_nickname"] = user.nickname
-        
+        # --- Синхронизация всех данных пользователя при входе ---
+        spotify_service = db.query(ConnectedService).filter_by(user_id=user.id, platform="spotify").first()
+        if spotify_service:
+            from app.services.platforms import SpotifyService
+            spotify = SpotifyService(db, user.id)
+            spotify.sync_user_playlists_and_favorites()
         logging.info(f"[LOGIN] Success: {user.email}, {user.nickname}, admin={user.is_admin}")
         return {"user": {"id": user.id, "email": user.email, "nickname": user.nickname, "is_admin": user.is_admin}}
     except Exception as e:

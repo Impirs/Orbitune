@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models.models import UserFavorite, Track, ConnectedService
+from app.models.models import UserFavorite, Track, ConnectedService, UserPlaylist, PlaylistTrack
 from app.services.platforms import SpotifyService
 import logging
 
@@ -12,29 +12,41 @@ def favorites(user_id: int = None, db: Session = Depends(get_db)):
     if not user_id:
         return {"playlist": None, "tracks": [], "error": "user_id is required"}
     try:
-        # Проверяем, есть ли подключённый Spotify
-        spotify_service = db.query(ConnectedService).filter_by(user_id=user_id, platform="spotify").first()
-        if spotify_service:
-            # Получаем плейлист Liked Songs из user_favorites
-            fav = db.query(UserFavorite).filter_by(user_id=user_id, platform="spotify").first()
-            spotify = SpotifyService(db, user_id)
-            tracks = []
-            if fav and fav.playlist_id:
-                # Получаем все треки из Liked Songs по ключу (playlist_id)
-                # Для Spotify Liked Songs используем get_favorite_tracks_all
-                tracks = spotify.get_favorite_tracks_all()
-            return {
-                "playlist": {
-                    "id": fav.playlist_id if fav else None,
-                    "title": fav.title if fav else "Liked Songs",
-                    "description": fav.description if fav else "",
-                    "platform": "spotify",
-                    "tracks_count": len(tracks)
-                },
-                "tracks": tracks
-            }
-        # ...если нет Spotify — можно добавить обработку для других платформ...
-        return {"playlist": None, "tracks": []}
+        # Получаем плейлист Liked Songs из user_favorites
+        fav = db.query(UserFavorite).filter_by(user_id=user_id, platform="spotify").first()
+        if not fav:
+            return {"playlist": None, "tracks": []}
+        # Находим плейлист Liked Songs в user_playlists
+        pl = db.query(UserPlaylist).filter((UserPlaylist.external_id == fav.playlist_id) | (UserPlaylist.id == fav.playlist_id)).first()
+        if not pl:
+            return {"playlist": None, "tracks": []}
+        # Получаем треки из PlaylistTrack и Track
+        tracks = (
+            db.query(Track)
+            .join(PlaylistTrack, PlaylistTrack.track_id == Track.id)
+            .filter(PlaylistTrack.playlist_id == pl.id)
+            .order_by(PlaylistTrack.order_index)
+            .all()
+        )
+        return {
+            "playlist": {
+                "id": fav.playlist_id,
+                "title": fav.title,
+                "description": fav.description,
+                "platform": fav.platform,
+                "tracks_count": len(tracks)
+            },
+            "tracks": [
+                {
+                    "id": t.id,
+                    "title": t.title,
+                    "artist": t.artist,
+                    "album": t.album,
+                    "duration": t.duration,
+                    "image_url": t.image_url
+                } for t in tracks
+            ]
+        }
     except Exception as e:
         logging.error(f"Error getting favorites: {str(e)}")
         return {"playlist": None, "tracks": []}

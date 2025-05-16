@@ -60,6 +60,13 @@ def spotify_callback(request: StarletteRequest, db: Session = Depends(get_db)):
     if not user_id:
         return RedirectResponse("http://127.0.0.1:5173/auth?oauth=fail&platform=spotify&reason=no_user_id")
     add_connected_service(db, user_id, "spotify", external_user_id, access_token, refresh_token)
+    # Синхронизация плейлистов и треков пользователя
+    from app.services.platforms import SpotifyService
+    try:
+        SpotifyService(db, user_id).sync_user_playlists_and_favorites()
+    except Exception as e:
+        import logging
+        logging.error(f"[SPOTIFY SYNC] Ошибка при синхронизации: {e}")
     # Получаем nickname пользователя для редиректа
     from app.models.models import User
     user = db.query(User).filter_by(id=user_id).first()
