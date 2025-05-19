@@ -88,19 +88,22 @@ async def login(data: LoginRequest, request: Request, response: Response, db: Se
         request.session["user_id"] = user.id
         request.session["user_email"] = user.email
         request.session["user_nickname"] = user.nickname
-        # --- Асинхронная синхронизация Spotify ---
-        spotify_service = db.query(ConnectedService).filter_by(user_id=user.id, platform="spotify").first()
-        if spotify_service and background_tasks is not None:
-            def sync_spotify_bg():
-                from app.services.platforms import SpotifyService
-                try:
-                    logging.info(f"[LOGIN][BG] Start Spotify sync for user_id={user.id}")
-                    spotify = SpotifyService(db, user.id)
-                    spotify.sync_user_playlists_and_favorites()
-                    logging.info(f"[LOGIN][BG] Spotify sync finished for user_id={user.id}")
-                except Exception as e:
-                    logging.error(f"[LOGIN][BG] Spotify sync error: {e}", exc_info=True)
-            background_tasks.add_task(sync_spotify_bg)
+        # --- Асинхронная синхронизация платформ ---
+        for plat in ("spotify", "yandex"):
+            plat_service = db.query(ConnectedService).filter_by(user_id=user.id, platform=plat).first()
+            if plat_service and background_tasks is not None:
+                def make_sync_bg(platform):
+                    def sync_bg():
+                        from app.services.platforms.platforms import get_platform_service
+                        try:
+                            logging.info(f"[LOGIN][BG] Start {platform} sync for user_id={user.id}")
+                            service = get_platform_service(platform, db, user.id)
+                            service.sync_user_playlists_and_favorites()
+                            logging.info(f"[LOGIN][BG] {platform} sync finished for user_id={user.id}")
+                        except Exception as e:
+                            logging.error(f"[LOGIN][BG] {platform} sync error: {e}")
+                    return sync_bg
+                background_tasks.add_task(make_sync_bg(plat))
         logging.info(f"[LOGIN] Success: {user.email}, {user.nickname}, admin={user.is_admin}")
         return {"user": {"id": user.id, "email": user.email, "nickname": user.nickname, "is_admin": user.is_admin}}
     except Exception as e:

@@ -42,8 +42,8 @@ class UserFavorite(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     platform = Column(String, nullable=False)
-    external_id = Column(String, nullable=True)  # nullable=True для обратной совместимости
-    playlist_id = Column(String, nullable=False)  # для связи с плейлистом Liked Songs
+    external_id = Column(String, nullable=True)
+    playlist_id = Column(String, nullable=False)
     title = Column(String, nullable=True)
     description = Column(String, nullable=True)
     tracks_number = Column(Integer, nullable=False)
@@ -59,10 +59,10 @@ class UserPlaylist(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     title = Column(String, nullable=False)
-    description = Column(String, nullable=True)  # добавлено поле description
+    description = Column(String, nullable=True)
     source_platform = Column(String)
     is_mixed = Column(Boolean, default=False)
-    external_id = Column(String)  # Spotify playlist id
+    external_id = Column(String)
     is_public = Column(Boolean, default=False)
     tracks_number = Column(Integer, nullable=False)
     image_url = Column(String)
@@ -96,12 +96,12 @@ class Track(Base):
     title = Column(String, nullable=False)
     artist = Column(String, nullable=False)
     album = Column(String)
-    duration = Column(Integer)  # duration in seconds
+    duration = Column(Integer)
     image_url = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     availability = relationship("TrackAvailability", back_populates="track")
-    playlist_tracks = relationship("PlaylistTrack", back_populates="track")  # исправлено имя свойства для back_populates
+    playlist_tracks = relationship("PlaylistTrack", back_populates="track")
 
 
 class TrackAvailability(Base):

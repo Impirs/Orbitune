@@ -31,6 +31,10 @@ export default defineConfig({
         target: 'http://backend:8000', 
         changeOrigin: true 
       },
+      '/yandex_music': {
+        target: 'http://backend:8000',
+        changeOrigin: true
+      },
     }
   }
 })

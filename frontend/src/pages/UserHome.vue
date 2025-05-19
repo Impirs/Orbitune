@@ -17,10 +17,10 @@ import Footer from '../components/Footer.vue'
 import Sidebar from '../components/Sidebar.vue'
 
 import HomeContent from './Content_Home.vue'
-import PlaylistsContent from './Content_Playlists.vue'
-import SettingsContent from './Content_Settings.vue'
-import PlatformsContent from './Content_Platforms.vue'
-import PlayerContent from './Content_Player.vue'
+import ContentSpotify from './Content_Spotify.vue'
+import ContentYouMusic from './Content_YouMusic.vue'
+import ContentDiscover from './Content_Discover.vue'
+import ContentSettings from './Content_Settings.vue'
 
 import { ref, computed, watch } from 'vue'
 import { useUserStore } from '../stores/user'
@@ -34,68 +34,30 @@ const user = computed(() => userStore.currentUser ? { name: userStore.currentUse
 const selected = ref('Home')
 const componentMap = {
   Home: HomeContent,
-  Playlists: PlaylistsContent,
-  Player: PlayerContent,
-  Platforms: PlatformsContent,
-  Settings: SettingsContent,
+  Discover: ContentDiscover,
+  'Spotify': ContentSpotify,
+  'Youtube Music': ContentYouMusic,
+  Settings: ContentSettings,
 }
-const currentComponent = computed(() => componentMap[selected.value])
+const currentComponent = computed(() => componentMap[selected.value] || HomeContent)
 
-// Синхронизация selected <-> query.tab
 function setTab(tab) {
   selected.value = tab in componentMap ? tab : 'Home';
-  // если tab не совпадает — fallback
 }
 
-// При выборе в сайдбаре — меняем query
 function onSelect(name) {
-  // Если выбран Player и есть последний выбранный плейлист — выставляем его явно
-  if (name === 'Player') {
-    const last = localStorage.getItem('lastSelectedPlaylistId');
-    if (last && userStore.playlists['spotify'] && userStore.playlists['spotify'].some(pl => String(pl.id) === String(last))) {
-      router.replace({
-        path: route.path,
-        query: { player: 1, service: 'spotify', playlistId: last }
-      });
-      selected.value = name;
-      return;
-    }
-    // Если нет — просто открыть Player (Favorites)
-    router.replace({ path: route.path, query: { player: 1 } });
-    selected.value = name;
-    return;
-  }
-  if (name !== selected.value) {
-    // При переходе на другие вкладки убираем все query полностью (чистый /home?)
-    router.replace({
-      path: route.path,
-      query: {} // полностью очищаем query
-    });
-  }
   selected.value = name;
+  // Можно добавить query/tab если нужно
 }
 
-// Следим за query.tab
+// Следим за query.tab (если нужно)
 watch(
   () => route.query.tab,
   (tab) => {
     if (tab && tab !== selected.value) setTab(tab);
   },
   { immediate: true }
-);
-
-// Автоматический переход в Player по query
-watch(() => route.query, (q) => {
-  if (q.player) {
-    setTab('Player');
-  } else if (q.playlists) {
-    setTab('Playlists');
-  } else if (q.settings) {
-    setTab('Settings');
-  } else if (q.tab) {
-    setTab(q.tab);
-  }
-})
+)
 </script>
 
 <style scoped>
@@ -105,16 +67,17 @@ watch(() => route.query, (q) => {
 }
 .userhome-main {
   flex: 1 1 auto;
-  height: calc(100vh - 48px);
+  height: calc(100vh - 64px);
   display: flex;
+  position: relative;
   min-height: 0;
-  background: #faf9f9;
+  background: #0f1225;
 }
 .userhome-content {
   flex: 1 1 auto;
   min-width: 0;
   min-height: 100%;
-  background: #faf9f9;
+  background: #0f1225;
   overflow-y: auto;
   padding: 0;
 }

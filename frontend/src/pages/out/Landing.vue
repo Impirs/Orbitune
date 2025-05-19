@@ -18,7 +18,7 @@
       <div class="content-divider"></div>
       <!-- Application Article -->
       <section class="app-article">
-        <img class="img-placeholder" src="../assets/music_universe.png" alt="music_universe">
+        <img class="img-placeholder" src="../../assets/music_universe.png" alt="music_universe">
         <div class="text-content">
           <h2>Orbitune</h2>
           <blockquote class="app-quote">
@@ -41,9 +41,9 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import Navbar from '../components/Navbar.vue'
-import Footer from '../components/Footer.vue'
-import { useUserStore } from '../stores/user'
+import Navbar from '../../components/Navbar.vue'
+import Footer from '../../components/Footer.vue'
+import { useUserStore } from '../../stores/user'
 
 const userStore = useUserStore()
 

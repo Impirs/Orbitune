@@ -2,31 +2,32 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.models import UserPlaylist, PlaylistTrack, Track, ConnectedService
-from app.services.platforms import SpotifyService
+from app.services.platforms.platforms import get_platform_service, PLATFORM_SERVICES
 import logging
 from typing import List, Dict, Any
 
 router = APIRouter()
 
-@router.post("/sync_spotify")
-def sync_spotify(user_id: int, db: Session = Depends(get_db)):
-    """Явно вызываемый endpoint для синхронизации Spotify"""
+@router.post("/sync_platform")
+def sync_platform(user_id: int, platform: str, db: Session = Depends(get_db)):
+    """Явно вызываемый endpoint для синхронизации любой платформы"""
     try:
-        from app.services.platforms import SpotifyService
-        spotify = SpotifyService(db, user_id)
-        spotify.sync_user_playlists_and_favorites()
+        service = get_platform_service(platform, db, user_id)
+        service.sync_user_playlists_and_favorites()
         return {"success": True}
     except Exception as e:
-        logging.error(f"[SYNC_SPOTIFY] Internal error: {e}", exc_info=True)
+        logging.error(f"[SYNC_PLATFORM] Internal error: {e}", exc_info=True)
         return {"success": False, "error": str(e)}
 
 @router.get("")
-def get_playlists(user_id: int = None, db: Session = Depends(get_db)):
+def get_playlists(user_id: int = None, platform: str = None, db: Session = Depends(get_db)):
     if not user_id:
         return {"error": "user_id is required"}
     try:
-        # Получаем все плейлисты пользователя из базы (быстро)
-        playlists = db.query(UserPlaylist).filter(UserPlaylist.user_id == user_id).all()
+        query = db.query(UserPlaylist).filter(UserPlaylist.user_id == user_id)
+        if platform:
+            query = query.filter(UserPlaylist.source_platform == platform)
+        playlists = query.all()
         result = []
         for pl in playlists:
             result.append({
@@ -44,10 +45,13 @@ def get_playlists(user_id: int = None, db: Session = Depends(get_db)):
         return {"playlists": [], "error": str(e)}
 
 @router.get("/{playlist_id}/tracks")
-def get_playlist_tracks(playlist_id: str, db: Session = Depends(get_db)):
+def get_playlist_tracks(playlist_id: str, platform: str = None, db: Session = Depends(get_db)):
     try:
-        # Сначала ищем по external_id, если не найдено — по id
-        pl = db.query(UserPlaylist).filter((UserPlaylist.external_id == playlist_id) | (UserPlaylist.id == playlist_id)).first()
+        # Сначала ищем по external_id, если не найдено — по id, с учётом платформы
+        query = db.query(UserPlaylist).filter((UserPlaylist.external_id == playlist_id) | (UserPlaylist.id == playlist_id))
+        if platform:
+            query = query.filter(UserPlaylist.source_platform == platform)
+        pl = query.first()
         if not pl:
             return {"tracks": [], "tracks_count": 0}
         tracks = (

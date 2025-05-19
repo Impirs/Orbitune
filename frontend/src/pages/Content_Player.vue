@@ -57,8 +57,8 @@ const isFavorites = computed(() => {
 
 const playlist = computed(() => {
   if (isFavorites.value && favoritesPlaylistId.value) {
-    // Находим плейлист избранного по точному id
-    const pls = userStore.playlists['spotify'] || [];
+    // Находим плейлист избранного по точному id для выбранной платформы
+    const pls = userStore.playlists[service.value] || [];
     return pls.find(pl => String(pl.id) === String(favoritesPlaylistId.value));
   }
   if (!service.value || !playlistId.value) return null;
@@ -66,7 +66,7 @@ const playlist = computed(() => {
   return pls.find(pl => String(pl.id) === String(playlistId.value));
 });
 const tracksToShow = computed(() => {
-  if (isFavorites.value && playlist.value) return playlist.value.tracks || [];
+  if (isFavorites.value && service.value && userStore.favorites[service.value]) return userStore.favorites[service.value];
   if (!isFavorites.value && playlist.value) return playlist.value.tracks || [];
   return [];
 });
@@ -108,8 +108,8 @@ onMounted(() => {
       }
     }
   }
-  if (isFavorites.value) {
-    userStore.fetchFavoritesLazy(0, favoritesLimit);
+  if (isFavorites.value && service.value) {
+    userStore.fetchFavoritesLazy(0, favoritesLimit, service.value);
   }
   nextTick(() => {
     if (rootRef.value) {
@@ -129,17 +129,19 @@ const playlistTracksError = ref('');
 watch(
   () => [service.value, playlistId.value],
   async ([s, pid], oldVals) => {
-    // oldVals может быть undefined
     if (!isFavorites.value && playlist.value && (!playlist.value.tracks || playlist.value.tracks.length === 0)) {
       playlistTracksLoading.value = true;
       playlistTracksError.value = '';
       try {
-        await userStore.fetchPlaylistTracks(playlist.value.id);
+        await userStore.fetchPlaylistTracks(playlist.value.id, s);
       } catch (e) {
         playlistTracksError.value = e?.message || 'Failed to load tracks';
       } finally {
         playlistTracksLoading.value = false;
       }
+    }
+    if (isFavorites.value && s) {
+      userStore.fetchFavoritesLazy(0, favoritesLimit, s);
     }
   },
   { immediate: true }

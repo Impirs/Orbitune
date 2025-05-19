@@ -40,7 +40,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
-import { useUserStore } from '../stores/user';
+import { useUserStore } from '../../stores/user';
 import { storeToRefs } from 'pinia';
 
 const email = ref('');

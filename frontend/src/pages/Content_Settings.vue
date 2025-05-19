@@ -15,17 +15,38 @@
       <h3>Authorize new service</h3>
       <button class="oauth-btn google" @click="connect('google')">Connect Google</button>
       <button class="oauth-btn spotify" @click="connect('spotify')">Connect Spotify</button>
-      <button class="oauth-btn yandex" @click="connect('yandex')">Connect Yandex</button>
+      <!-- <div class="yandex-auth-collapsible">
+        <button class="oauth-btn yandex" @click="toggleYandex">Connect Yandex</button>
+        <div v-if="showYandex" class="yandex-instructions">
+          <ol>
+            <li>Перейдите на <a href="https://music.yandex.ru" target="_blank">music.yandex.ru</a> и войдите в свой аккаунт.</li>
+            <li>Откройте инструменты разработчика (F12), вкладка <b>Application</b> → <b>Cookies</b> → <b>music.yandex.ru</b> или <b>localStorage</b>.</li>
+            <li>Найдите токен <b>"yandex_gid"</b>, <b>"Session_id"</b> или <b>"access-token"/"xtoken"</b> (обычно в localStorage или cookies).</li>
+            <li>Скопируйте значение токена и вставьте в поле ниже.</li>
+          </ol>
+          <input v-model="manualXToken" placeholder="Вставьте ваш xtoken" style="width: 100%; margin-bottom: 8px;" />
+          <button @click="saveManualXToken" :disabled="savingXToken || !manualXToken">Сохранить токен</button>
+          <div v-if="xTokenError" class="error-block">{{ xTokenError }}</div>
+          <div v-if="xTokenSuccess" class="success-block">Токен сохранён!</div>
+        </div>
+      </div> -->
     </div>
   </div>
 </template>
 
 <script setup>
-import { onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useUserStore } from '../stores/user';
 import axios from 'axios';
+import { useRouter } from 'vue-router';
 
 const userStore = useUserStore();
+const router = useRouter();
+const showYandex = ref(false);
+const manualXToken = ref('');
+const savingXToken = ref(false);
+const xTokenError = ref('');
+const xTokenSuccess = ref(false);
 
 onMounted(() => {
   userStore.fetchConnectedServices();
@@ -37,9 +58,48 @@ function connect(platform) {
   } else if (platform === 'spotify') {
     window.location.href = '/oauth/spotify/login';
   } else if (platform === 'yandex') {
-    window.location.href = '/oauth/yandex/login';
+    toggleYandex();
   }
 }
+
+function toggleYandex() {
+  showYandex.value = !showYandex.value;
+  xTokenError.value = '';
+  xTokenSuccess.value = false;
+}
+// No need in case of Yandex music politics rn
+async function saveManualXToken() {
+  xTokenError.value = '';
+  xTokenSuccess.value = false;
+  savingXToken.value = true;
+  try {
+    const user_id = userStore.currentUser?.id;
+    if (!user_id) {
+      xTokenError.value = 'Сначала выполните вход в Orbitune.';
+      savingXToken.value = false;
+      return;
+    }
+    const res = await axios.post('/yandex_music/xtoken', {
+      user_id,
+      xtoken: manualXToken.value
+    });
+    if (res.data && res.data.ok) {
+      xTokenSuccess.value = true;
+      setTimeout(() => {
+        xTokenSuccess.value = false;
+        showYandex.value = false;
+        userStore.fetchConnectedServices();
+      }, 1200);
+    } else {
+      xTokenError.value = res.data?.detail || 'Ошибка сохранения токена';
+    }
+  } catch (e) {
+    xTokenError.value = e?.response?.data?.detail || e?.message || 'Ошибка сохранения токена';
+  } finally {
+    savingXToken.value = false;
+  }
+}
+
 function disconnect(platform) {
   if (!platform) return;
   if (!confirm('Disconnect ' + platform + '?')) return;
@@ -54,11 +114,7 @@ function disconnect(platform) {
       userStore.fetchPlaylists();
       userStore.fetchFavoritesFull();
       userStore.error = '';
-      // Если сервисов не осталось — сбрасываем выбранные плейлисты и избранное
-      setTimeout(() => {
-        // Если пользователь остался без сервисов, можно сбросить локальный стор или перейти на главную
-        // location.reload(); // Не требуется, если стор обновляется корректно
-      }, 100);
+      setTimeout(() => {}, 0);
     })
     .catch(e => {
       userStore.error = e?.response?.data?.detail || e?.message || 'Failed to disconnect';
@@ -125,5 +181,23 @@ button {
   background: #f2412e;
   color: #222;
   border: 1px solid #eee;
+}
+.yandex-auth-collapsible {
+  margin-top: 12px;
+}
+.yandex-instructions {
+  background: #fffbe6;
+  border: 1px solid #ffe58f;
+  border-radius: 6px;
+  padding: 16px;
+  margin-top: 8px;
+}
+.success-block {
+  color: #389e0d;
+  margin-top: 8px;
+}
+.error-block {
+  color: #cf1322;
+  margin-top: 8px;
 }
 </style>

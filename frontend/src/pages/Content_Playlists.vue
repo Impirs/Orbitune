@@ -34,7 +34,7 @@
 </template>
 
 <script setup>
-import { onMounted, computed, ref } from 'vue';
+import { onMounted, computed, ref, watch } from 'vue';
 import { useUserStore } from '../stores/user';
 import { useRouter } from 'vue-router';
 import PlaylistRow from '../components/PlaylistRow.vue';
@@ -44,6 +44,13 @@ const userStore = useUserStore();
 const router = useRouter();
 
 const selectedService = ref('All');
+
+watch(selectedService, (val) => {
+  if (val !== 'All') {
+    userStore.fetchPlaylists(val.toLowerCase());
+  }
+});
+
 const serviceOptions = computed(() => {
   const base = ['All'];
   const connected = userStore.connectedServices?.map(s => {
@@ -55,24 +62,18 @@ const serviceOptions = computed(() => {
   return [...base, ...connected.filter((v, i, arr) => arr.indexOf(v) === i)];
 });
 
-const spotifyPlaylists = computed(() => userStore.playlists['spotify'] || []);
-const yandexPlaylists = computed(() => userStore.playlists['yandex'] || []);
-const youtubePlaylists = computed(() => userStore.playlists['google'] || []);
-const allPlaylists = computed(() => [
-  ...spotifyPlaylists.value,
-  ...yandexPlaylists.value,
-  ...youtubePlaylists.value
-]);
+const playlistsByService = computed(() => userStore.playlists || {});
+const allPlaylists = computed(() => Object.values(playlistsByService.value).flat());
 const filteredPlaylists = computed(() => {
   if (selectedService.value === 'All') return allPlaylists.value;
-  if (selectedService.value === 'Spotify') return spotifyPlaylists.value;
-  if (selectedService.value === 'Yandex') return yandexPlaylists.value;
-  if (selectedService.value === 'Youtube') return youtubePlaylists.value;
-  return allPlaylists.value;
+  const key = selectedService.value.toLowerCase();
+  return playlistsByService.value[key] || [];
 });
 
 onMounted(() => {
-  userStore.fetchPlaylists();
+  userStore.fetchPlaylists('spotify');
+  userStore.fetchPlaylists('yandex');
+  userStore.fetchPlaylists('google');
 });
 
 function openPlaylist(service, playlist) {
@@ -95,6 +96,14 @@ function onCreatePlaylist() {
   height: 100%;
   flex-direction: column;
   min-height: 0;
+  color: #fff;
+  background: rgba(255,255,255,0.18);
+  border-radius: 18px;
+  box-shadow: 0 2px 32px 0 rgba(0,0,0,0.18);
+  gap: 16px;
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(10px) saturate(1.5);
+  border: 1.5px solid rgba(255,255,255,0.25);
 }
 .create-btn {
   background: rgba(255,255,255,0.50);

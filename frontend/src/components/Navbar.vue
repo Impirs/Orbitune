@@ -89,6 +89,7 @@ function logout() {
   width: fit-content;
 }
 .user-name {
+  color: #fff;
   margin-left: 16px;
   font-weight: bold;
 }
