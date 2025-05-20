@@ -11,7 +11,7 @@ export const useUserStore = defineStore('user', {
     loading: false, // глобальный лоадер
     error: '',     // глобальная ошибка
     lastSelectedPlaylist: null, // id последнего выбранного плейлиста
-    favoritesPlaylistId: null, // id плейлиста избранного (user_playlists.id)
+    favoritesPlaylistExternalId: null, // id плейлиста избранного (user_playlists.id)
     loginStage: '', // этап загрузки при логине/регистрации
   }),
   actions: {
@@ -123,6 +123,7 @@ export const useUserStore = defineStore('user', {
         this.error = 'User not logged in or user_id missing';
         return;
       }
+      // Получаем плейлисты только один раз за сессию
       if (this.playlists && this.playlists[platform] && this.playlists[platform].length > 0) {
         console.log(`[fetchPlaylists] Playlists for ${platform} already loaded, skip request`);
         return;
@@ -131,13 +132,17 @@ export const useUserStore = defineStore('user', {
       this.error = '';
       try {
         console.log(`[fetchPlaylists] Запрос плейлистов для ${platform}...`);
+        // Ожидаем, что каждый плейлист содержит tracks_number
         const res = await axios.get('/playlists', { params: { user_id: this.currentUser.id, platform }, withCredentials: true });
         const basePlaylists = res.data.playlists || [];
+        // Проверяем, что у каждого плейлиста есть tracks_number
+        basePlaylists.forEach(pl => {
+          if (typeof pl.tracks_number === 'undefined') {
+            console.warn(`[fetchPlaylists] Плейлист ${pl.title} не содержит tracks_number!`);
+          }
+        });
         if (!this.playlists) this.playlists = {};
         this.playlists[platform] = basePlaylists;
-        // Батч-запрос для количества треков
-        const ids = basePlaylists.map(pl => pl.id);
-        await this.fetchTracksCountBatch(ids, platform);
         console.log(`[fetchPlaylists] Получено плейлистов для ${platform}:`, basePlaylists.length, basePlaylists.map(p => p.id));
       } catch (e) {
         this.error = e?.response?.data?.detail || e?.message || `Failed to load playlists for ${platform}`;
@@ -148,6 +153,7 @@ export const useUserStore = defineStore('user', {
     },
     async fetchPlaylistTracks(playlistId, platform = 'spotify') {
       if (!playlistId) return;
+      // Не трогаем массив плейлистов, только подгружаем треки для выбранного плейлиста
       const pl = this.playlists && this.playlists[platform] && this.playlists[platform].find(p => String(p.id) === String(playlistId));
       if (pl && pl.tracks && pl.tracks.length > 0) return;
       try {
@@ -155,31 +161,13 @@ export const useUserStore = defineStore('user', {
         if (this.playlists && this.playlists[platform]) {
           this.playlists[platform] = this.playlists[platform].map(pl =>
             String(pl.id) === String(playlistId)
-              ? { ...pl, tracks: res.data.tracks || [], tracks_count: res.data.tracks_count }
+              ? { ...pl, tracks: res.data.tracks || [] }
               : pl
           );
         }
       } catch (e) {
         console.error(`[fetchPlaylistTracks] Error for ${platform}:`, e);
         throw e;
-      }
-    },
-    async fetchTracksCountBatch(ids, platform = 'spotify') {
-      if (!ids || ids.length === 0) return;
-      const idsStr = ids.map(x => String(x));
-      console.log(`[fetchTracksCountBatch] Отправка ids для ${platform}:`, idsStr);
-      try {
-        const res = await axios.post('/playlists/tracks_count_batch', { ids: idsStr }, { withCredentials: true });
-        if (res.data && res.data.counts) {
-          if (this.playlists[platform]) {
-            this.playlists[platform] = this.playlists[platform].map(pl => ({
-              ...pl,
-              tracks_count: res.data.counts[pl.id] ?? undefined
-            }));
-          }
-        }
-      } catch (e) {
-        console.error(`[fetchTracksCountBatch] Ошибка для ${platform}:`, e);
       }
     },
     // Ленивая подгрузка избранных треков
@@ -228,13 +216,10 @@ export const useUserStore = defineStore('user', {
       if (!this.currentUser || !this.currentUser.id) return;
       try {
         const res = await axios.get('/favorites', { params: { user_id: this.currentUser.id, platform }, withCredentials: true });
-        const externalId = res.data?.playlist?.id;
+        const externalId = res.data?.playlist?.external_id;
+        // console.log('[user.js] external_id избранного плейлиста из user_favorites:', externalId);
         if (!externalId) return;
-        const plRes = await axios.get('/playlists', { params: { user_id: this.currentUser.id, platform }, withCredentials: true });
-        const found = (plRes.data.playlists || []).find(pl => String(pl.external_id) === String(externalId));
-        if (found) {
-          this.favoritesPlaylistId = found.id;
-        }
+        this.favoritesPlaylistExternalId = externalId;
       } catch (e) {
         // ignore
       }

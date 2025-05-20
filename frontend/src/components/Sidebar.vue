@@ -22,8 +22,8 @@ const userStore = useUserStore();
 
 const baseTabs = [
   { name: 'Home', label: 'Home', imagePath: new URL('../assets/sun.png', import.meta.url).href },
-  { name: 'Discover', label: 'Discover', imagePath: '' },
-  { name: 'Settings', label: 'Settings', imagePath: '' }
+  { name: 'Discover', label: 'Discover', imagePath: new URL('../assets/satellite.png', import.meta.url).href },
+  { name: 'Settings', label: 'Settings', imagePath: new URL('../assets/black_hole.png', import.meta.url).href }
 ];
 
 // Platform content tabs (Spotify, Youtube Music)
@@ -90,8 +90,8 @@ li:last-child {
   margin-top: auto;
 }
 .sidebar_icon, .icon {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 6px;
   margin-right: 16px;
   background: #ff4444;
@@ -106,14 +106,15 @@ li:last-child {
   padding: 18px 36px;
   display: flex;
   align-items: center;
-  min-width: 160px;
+  min-width: 120px;
+  width: 182px;
   user-select: none;
   color: #fff;
   background: rgba(255, 255, 255, 0.15);
   border-radius: 18px;
   box-shadow: 0 2px 32px 0 rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(18px) saturate(1.5);
-  -webkit-backdrop-filter: blur(5px) saturate(1.5);
+  backdrop-filter: blur(8px) saturate(2);
+  /* -webkit-backdrop-filter: blur(8px) saturate(1); */
   border: 1px solid rgba(255,255,255,0.33);
   transition: background 0.28s cubic-bezier(0.4, 0, 0.2, 1),
               transform 0.38s cubic-bezier(0.4, 0, 0.2, 1),

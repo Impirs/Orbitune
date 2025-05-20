@@ -2,6 +2,38 @@
   <div class="userhome-root">
     <Navbar :user="user" />
     <div class="userhome-main">
+      <!-- Decorative Orbits on background -->
+      <Decor_Orbits
+        class="decor-orbit decor-orbit-1"
+        :radius="220"
+        :size="500"
+        color="#23253a"
+        :strokeWidth="2"
+        :planets="[{type: 'red', size: 0.9, angle: 120}]"
+      />
+      <Decor_Orbits
+        class="decor-orbit decor-orbit-2"
+        :radius="400"
+        :size="800"
+        color="#23253a"
+        :strokeWidth="2"
+        :planets="[
+          {type: 'gray', size: 0.6, angle: 280},
+          {type: 'purple', size: 1, angle: 30}
+        ]"
+      />
+      <Decor_Orbits
+        class="decor-orbit decor-orbit-3"
+        :radius="400"
+        :size="800"
+        color="#23253a"
+        :strokeWidth="2"
+        :planets="[
+          {type: 'yellow', size: 1, angle: 190},
+          {type: 'blue', size: 0.9, angle: 250}
+        ]"
+      />
+      <!-- Main content -->
       <Sidebar :selected="selected" @select="onSelect" />
       <main class="userhome-content">
         <component :is="currentComponent" />
@@ -15,6 +47,7 @@
 import Navbar from '../components/Navbar.vue'
 import Footer from '../components/Footer.vue'
 import Sidebar from '../components/Sidebar.vue'
+import Decor_Orbits from '../components/Decor_Orbits.vue'
 
 import HomeContent from './Content_Home.vue'
 import ContentSpotify from './Content_Spotify.vue'
@@ -64,6 +97,8 @@ watch(
 .userhome-root {
   display: flex;
   flex-direction: column;
+  background: inherit;
+  overflow: hidden;
 }
 .userhome-main {
   flex: 1 1 auto;
@@ -80,5 +115,22 @@ watch(
   background: #0f1225;
   overflow-y: auto;
   padding: 0;
+}
+.decor-orbit {
+  position: absolute;
+  pointer-events: none;
+  z-index: 0;
+}
+.decor-orbit-1 {
+  left: -90px;
+  top: -160px;
+}
+.decor-orbit-2 {
+  left: 280px;
+  bottom: -380px;
+}
+.decor-orbit-3 {
+  right: -200px;
+  top: -280px;
 }
 </style>

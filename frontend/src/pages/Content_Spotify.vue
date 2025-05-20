@@ -12,5 +12,14 @@ import Platform_Player from '../components/Platform_Player.vue';
 </script>
 
 <style scoped>
-/* styles here */
+.content-spotify {
+  width: calc(100% - 64px);
+  height: calc(100% - 64px);
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: row;
+  padding: 32px;
+  overflow: hidden;
+}
 </style>
