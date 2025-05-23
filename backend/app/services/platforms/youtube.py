@@ -2,6 +2,8 @@ import requests
 from datetime import datetime
 from app.models.models import UserPlaylist, PlaylistTrack, Track, TrackAvailability, UserFavorite, ConnectedService
 from sqlalchemy.orm import Session
+import os
+import logging
 
 from .base import BasePlatformService
 
@@ -28,13 +30,43 @@ class YouTubeService(BasePlatformService):
     def _headers(self):
         return {"Authorization": f"Bearer {self.token}"}
 
+    def _refresh_token(self):
+        service = self.db.query(ConnectedService).filter_by(user_id=self.user_id, platform="youtube").first()
+        if not service or not service.refresh_token:
+            logging.warning(f"[YOUTUBE] Нет refresh_token для user_id={self.user_id}")
+            return False
+        data = {
+            "client_id": os.getenv("GOOGLE_CLIENT_ID"),
+            "client_secret": os.getenv("GOOGLE_CLIENT_SECRET"),
+            "refresh_token": service.refresh_token,
+            "grant_type": "refresh_token"
+        }
+        resp = requests.post("https://oauth2.googleapis.com/token", data=data)
+        logging.info(f"[YOUTUBE] refresh_token status={resp.status_code} body={resp.text[:200]}")
+        if resp.status_code == 200:
+            tokens = resp.json()
+            service.access_token = tokens["access_token"]
+            self.db.commit()
+            self.token = tokens["access_token"]
+            logging.info(f"[YOUTUBE] access_token обновлён для user_id={self.user_id}")
+            return True
+        logging.error(f"[YOUTUBE] Не удалось обновить access_token для user_id={self.user_id}")
+        return False
+
     def get_playlists(self, limit=50):
         if not self.token:
             return []
         playlists = []
         url = f"{YOUTUBE_API_BASE}/playlists?part=snippet,contentDetails&mine=true&maxResults=50"
+        retried = False
         while url:
             resp = requests.get(url, headers=self._headers())
+            if resp.status_code == 401 and not retried:
+                if self._refresh_token():
+                    retried = True
+                    resp = requests.get(url, headers=self._headers())
+                else:
+                    raise Exception("YouTube access token expired and refresh failed.")
             if resp.status_code != 200:
                 print("YouTube API error:", resp.status_code, resp.text)
                 raise Exception(f"YouTube API error: {resp.status_code} {resp.text}")
@@ -134,8 +166,15 @@ class YouTubeService(BasePlatformService):
             return []
         tracks = []
         url = f"{YOUTUBE_API_BASE}/playlistItems?part=snippet,contentDetails&playlistId={playlist_id}&maxResults=50"
+        retried = False
         while url:
             resp = requests.get(url, headers=self._headers())
+            if resp.status_code == 401 and not retried:
+                if self._refresh_token():
+                    retried = True
+                    resp = requests.get(url, headers=self._headers())
+                else:
+                    break
             if resp.status_code != 200:
                 break
             data = resp.json()
@@ -195,8 +234,15 @@ class YouTubeService(BasePlatformService):
         tracks = []
         video_ids = []
         url = f"{YOUTUBE_API_BASE}/playlistItems?part=snippet,contentDetails&playlistId={playlist_id}&maxResults=50"
+        retried = False
         while url:
             resp = requests.get(url, headers=self._headers())
+            if resp.status_code == 401 and not retried:
+                if self._refresh_token():
+                    retried = True
+                    resp = requests.get(url, headers=self._headers())
+                else:
+                    break
             if resp.status_code != 200:
                 break
             data = resp.json()
@@ -225,6 +271,11 @@ class YouTubeService(BasePlatformService):
             batch_ids = video_ids[i:i+50]
             vurl = f"{YOUTUBE_API_BASE}/videos?part=contentDetails&id={','.join(batch_ids)}"
             vresp = requests.get(vurl, headers=self._headers())
+            if vresp.status_code == 401:
+                if self._refresh_token():
+                    vresp = requests.get(vurl, headers=self._headers())
+                else:
+                    continue
             if vresp.status_code != 200:
                 continue
             vdata = vresp.json()

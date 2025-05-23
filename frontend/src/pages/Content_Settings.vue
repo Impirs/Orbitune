@@ -36,7 +36,13 @@
         </div>
         <div class="settings-block">
           <div class="settings-subtitle">Data</div>
-          <div class="settings-placeholder">Export, import, clear data (coming soon)</div>
+          <div>
+            <Data_Manager
+              v-for="service in userStore.connectedServices"
+              :key="service.platform"
+              :service="service.platform"
+            />
+          </div>
         </div>
         <div class="settings-block">
           <div class="settings-subtitle">Player</div>
@@ -73,6 +79,7 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useUserStore } from '../stores/user';
 import { useServicesStore } from '../stores/services';
+import Data_Manager from '../components/Data_Manager.vue';
 const userStore = useUserStore();
 const servicesStore = useServicesStore();
 const hoveredService = ref(null);
@@ -138,7 +145,6 @@ async function logoutService(platform) {
 }
 
 onMounted(() => {
-  // Гарантируем, что сервисы всегда актуальны при открытии настроек
   userStore.fetchConnectedServices();
 });
 
