@@ -1,7 +1,7 @@
 <template>
   <div class="content-spotify">
-    <Platform_Playlist />
-    <Platform_Player />
+    <Platform_Playlist platform="spotify" />
+    <Platform_Player platform="spotify" />
   </div>
 </template>
 
@@ -13,13 +13,9 @@ import Platform_Player from '../components/Platform_Player.vue';
 
 <style scoped>
 .content-spotify {
-  width: calc(100% - 64px);
-  height: calc(100% - 64px);
+  width: 100%;
+  height: 100%;
   min-height: 0;
   min-width: 0;
-  display: flex;
-  flex-direction: row;
-  padding: 32px;
-  overflow: hidden;
 }
 </style>

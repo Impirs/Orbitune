@@ -58,8 +58,9 @@ def google_callback(request: StarletteRequest, db: Session = Depends(get_db)):
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse("http://127.0.0.1:5173/auth?oauth=fail&platform=google&reason=no_user_id")
-    add_connected_service(db, user_id, "google", external_user_id, access_token, refresh_token)
+    add_connected_service(db, user_id, "youtube", external_user_id, access_token, refresh_token)
     from app.models.models import User
     user = db.query(User).filter_by(id=user_id).first()
     nickname = user.nickname if user else "home"
-    return RedirectResponse(f"http://127.0.0.1:5173/{nickname}/home?oauth=success&platform=google")
+    # return RedirectResponse(f"http://127.0.0.1:5173/{nickname}/home?oauth=success&platform=google")
+    return RedirectResponse(f"http://127.0.0.1:5173/{nickname}/youtube_transfer")

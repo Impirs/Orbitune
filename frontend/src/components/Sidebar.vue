@@ -13,29 +13,36 @@
 </template>
 
 <script setup>
-import { defineProps, computed } from 'vue'
+import { defineProps, computed, watch } from 'vue'
 import { useUserStore } from '../stores/user'
 const props = defineProps({
   selected: String
 })
 const userStore = useUserStore();
 
+watch(
+  () => userStore.connectedServices,
+  () => {
+    // sidebarItems пересчитается автоматически, компонент ререндерится
+  },
+  { deep: true }
+);
+
 const baseTabs = [
-  { name: 'Home', label: 'Home', imagePath: new URL('../assets/sun.png', import.meta.url).href },
-  { name: 'Discover', label: 'Discover', imagePath: new URL('../assets/satellite.png', import.meta.url).href },
-  { name: 'Settings', label: 'Settings', imagePath: new URL('../assets/black_hole.png', import.meta.url).href }
+  { name: 'Home', label: 'Home', imagePath: new URL('../assets/planets/sun.png', import.meta.url).href },
+  { name: 'Discover', label: 'Discover', imagePath: new URL('../assets/planets/satellite.png', import.meta.url).href },
+  { name: 'Settings', label: 'Settings', imagePath: new URL('../assets/planets/black_hole.png', import.meta.url).href }
 ];
 
-// Platform content tabs (Spotify, Youtube Music)
 const serviceTabs = computed(() => {
   const result = [];
   const connected = userStore.connectedServices || [];
-  // Discover -> Spotify, Youtube Music -> Settings
+  // Discover -> [1] Apple, [2] SoundCloud, [3] Spotify, [4] Youtube Music, ... , [8] Deezer -> Settings
   if (connected.some(s => s.platform === 'spotify')) {
-    result.push({ name: 'Spotify', label: 'Spotify', imagePath: new URL('../assets/earth.png', import.meta.url).href }); 
+    result.push({ name: 'Spotify', label: 'Spotify', imagePath: new URL('../assets/planets/earth.png', import.meta.url).href }); 
   }
-  if (connected.some(s => s.platform === 'google')) {
-    result.push({ name: 'Youtube Music', label: 'Youtube Music', imagePath: new URL('../assets/mars.png', import.meta.url).href });
+  if (connected.some(s => s.platform === 'youtube')) {
+    result.push({ name: 'Youtube Music', label: 'Youtube Music', imagePath: new URL('../assets/planets/mars.png', import.meta.url).href });
   }
   return result;
 });
@@ -134,9 +141,13 @@ li.active .label_btn {
   font-weight: 600;
   /* transform: translateX(8px); */
 }
-li.active .label_btn:hover {
-  /* background: inherit; */
-  /* transform: none; */
+li.active[data-tab="Home"] .label_btn {
+  background: #f47a2b; /* f09433 */
+  color: #222;
+}
+li.active[data-tab="Discover"] .label_btn {
+  background: #547fba;
+  color: #222;
 }
 li.active[data-tab="Spotify"] .label_btn {
   background: #1db954; /* 98e478 */
@@ -144,11 +155,11 @@ li.active[data-tab="Spotify"] .label_btn {
 }
 li.active[data-tab="Youtube Music"] .label_btn {
   background: #f40d3d; /* cd3d38 */
-  color: #fff;
+  color: #222;
 }
-li.active[data-tab="Home"] .label_btn {
-  background: #ee8027; /* f09433 */
-  color: #fff;
+li.active[data-tab="Settings"] .label_btn {
+  background: #f47a2b; /* f09433 */
+  color: #222;
 }
 .label {
   font-size: 1.3em;

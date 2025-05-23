@@ -3,6 +3,7 @@
     <Playlist_bar
       :selectedId="selectedPlaylistId"
       :expanded="expanded"
+      :platform="props.platform"
       @select="onSelectPlaylist"
       @toggle-expanded="toggleExpanded"
       class="playlist-bar-flex"
@@ -11,6 +12,7 @@
       <Tracks_list
         v-if="selectedPlaylistId && !expanded"
         :playlistId="selectedPlaylistId"
+        :platform="props.platform"
         class="tracks-list-flex"
         key="tracks-list"
       />
@@ -19,17 +21,23 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useUserStore } from '../stores/user';
+import { useServicesStore } from '../stores/services';
 import Playlist_bar from './Playlist_bar.vue';
 import Tracks_list from './Tracks_list.vue';
 const userStore = useUserStore();
+const servicesStore = useServicesStore();
+
+const props = defineProps({
+  platform: { type: String, required: true }
+});
 
 const selectedPlaylistId = ref(null);
 const expanded = ref(false);
 
-const playlists = computed(() => userStore.playlists['spotify'] || []);
-const favoritesPlaylistId = computed(() => userStore.favoritesPlaylistId);
+const playlists = computed(() => servicesStore.playlists[props.platform] || []);
+const favoritesPlaylistId = ref(null);
 
 watch([playlists, favoritesPlaylistId], ([pls, favId]) => {
   if (!selectedPlaylistId.value && favId) {
@@ -37,9 +45,20 @@ watch([playlists, favoritesPlaylistId], ([pls, favId]) => {
   }
 }, { immediate: true });
 
+onMounted(() => {
+  if (userStore.currentUser && props.platform) {
+    servicesStore.fetchPlaylists(userStore.currentUser.id, props.platform);
+  }
+});
+
+watch(() => props.platform, (newPlatform) => {
+  if (userStore.currentUser && newPlatform) {
+    servicesStore.fetchPlaylists(userStore.currentUser.id, newPlatform);
+  }
+});
+
 function onSelectPlaylist(id) {
   selectedPlaylistId.value = id;
-  // Если был expanded, возвращаемся в default (expanded = false)
   if (expanded.value) expanded.value = false;
 }
 function toggleExpanded() {
@@ -81,9 +100,10 @@ function toggleExpanded() {
   /* fade animation will handle display */
 }
 .fade-tracks-enter-active, .fade-tracks-leave-active {
-  transition: opacity 0.25s cubic-bezier(0.4,0,0.2,1);
+  /* transition: opacity 0.4s cubic-bezier(0.4,0,0.2,1); */
+  opacity: 0;
 }
 .fade-tracks-enter-from, .fade-tracks-leave-to {
-  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.4,0,0.2,1);
 }
 </style>

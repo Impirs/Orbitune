@@ -1,9 +1,10 @@
 <template>
   <nav class="navbar">
     <div class="navbar-left">
-      <router-link to="/" class="icon-btn">
-        <div class="icon-placeholder"></div>
-      </router-link>
+      <div class="application-title">
+        <img src="../assets/planets/orbitune.png" class="application-icon">
+        <h2>Orbitune</h2>
+      </div>
     </div>
     <div class="navbar-right">
       <template v-if="!userStore.isLoggedIn">
@@ -17,7 +18,7 @@
           <div class="user-icon"></div>
         </div>
         <button @click="logout" class="exit-btn">
-          <div class="icon-placeholder"></div>
+          <img src="https://img.icons8.com/?size=100&id=Q1xkcFuVON39&format=png&color=ffffff" alt="logout">
         </button>
       </template>
     </div>
@@ -55,15 +56,15 @@ function logout() {
   display: flex;
   align-items: center;
 }
-.icon-btn {
+.application-title {
   display: flex;
   align-items: center;
+  font-size: 1.1em;
+  color: #fff;
 }
-.icon-placeholder {
-  width: 48px;
-  height: 48px;
-  background: #ff4444;
-  border-radius: 8px;
+.application-icon {
+  width: 52px;
+  height: 52px;
 }
 .navbar-right {
   display: flex;
@@ -104,13 +105,17 @@ function logout() {
 .exit-btn {
   background: none;
   border: none;
-  margin-left: 12px;
+  border-radius: 4px;
+  padding: 2px 0 0 2px;
+  /* margin-left: 8px; */
   cursor: pointer;
 }
-.exit-btn .icon-placeholder {
+.exit-btn img {
   width: 32px;
   height: 32px;
-  background: #ff4444;
   border-radius: 6px;
+}
+.exit-btn:hover{
+  background-color: rgba(255, 255, 255, 0.18);
 }
 </style>

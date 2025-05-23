@@ -1,7 +1,7 @@
 <template>
   <div class="content-youmusic">
-    <Platform_Playlist />
-    <Platform_Player />
+    <Platform_Playlist platform="youtube" />
+    <Platform_Player platform="youtube" />
   </div>
 </template>
 
@@ -12,5 +12,10 @@ import Platform_Player from '../components/Platform_Player.vue';
 </script>
 
 <style scoped>
-/* styles here */
+.content-youmusic {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+}
 </style>

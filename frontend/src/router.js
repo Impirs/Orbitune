@@ -6,6 +6,7 @@ import UserHome from './pages/UserHome.vue';
 import ContentSpotify from './pages/Content_Spotify.vue';
 import ContentYouMusic from './pages/Content_YouMusic.vue';
 import ContentDiscover from './pages/Content_Discover.vue';
+import YoutubeTransfer from './pages/out/Youtube_Transfer.vue';
 
 const routes = [
   { path: '/', component: Landing },
@@ -19,6 +20,7 @@ const routes = [
     name: 'OauthYandexMusic',
     component: () => import('./pages/out/Oauth_YandexMusic.vue'),
   },
+  { path: '/:user/youtube_transfer', name: 'YoutubeTransfer', component: YoutubeTransfer },
 ];
 
 const router = createRouter({
@@ -29,11 +31,15 @@ const router = createRouter({
 router.beforeEach((to, from, next) => {
   const userStore = useUserStore();
 
+  // Редирект после oauth google/youtube на страницу выбора плейлистов
+  if (to.query.oauth === 'success' && to.query.platform === 'youtube') {
+    return next('/youtube_transfer');
+  }
+
   if (!userStore.isLoggedIn) {
     userStore.initialize();
   }
 
-  // Если пользователь залогинен, всегда разрешаем доступ к /:user/home
   if (to.path.match(/^\/[\w-]+\/home/)) {
     if (!userStore.isLoggedIn) {
       userStore.initialize();

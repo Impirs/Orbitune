@@ -109,12 +109,14 @@ watch(
   background: #0f1225;
 }
 .userhome-content {
+  display: flex;
   flex: 1 1 auto;
+  width: calc(100% - 64px);
+  height: calc(100% - 64px);
+  min-height: 0;
   min-width: 0;
-  min-height: 100%;
-  background: #0f1225;
-  overflow-y: auto;
-  padding: 0;
+  padding: 32px 32px;
+  overflow: hidden;
 }
 .decor-orbit {
   position: absolute;

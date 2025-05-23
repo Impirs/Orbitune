@@ -37,11 +37,11 @@ const props = defineProps({
 })
 
 const animatedAngles = ref([])
+const frameId = ref(null)
 
 function startSwayAnimation() {
   const swayRange = 10
   const swayDuration = 60
-  let frameId
   let startTime = performance.now()
 
   function animate() {
@@ -58,14 +58,17 @@ function startSwayAnimation() {
       else sway = -swayRange
       return planet.angle + sway
     })
-    frameId = requestAnimationFrame(animate)
+    frameId.value = requestAnimationFrame(animate)
   }
-  frameId = requestAnimationFrame(animate)
-  onUnmounted(() => cancelAnimationFrame(frameId))
+  frameId.value = requestAnimationFrame(animate)
 }
 
 onMounted(() => {
   startSwayAnimation()
+})
+
+onUnmounted(() => {
+  if (frameId.value) cancelAnimationFrame(frameId.value)
 })
 
 watch(() => props.planets, () => {
