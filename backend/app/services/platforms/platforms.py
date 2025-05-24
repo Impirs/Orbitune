@@ -3,7 +3,7 @@ from .yandex import YandexMusicService
 from .youtube import YouTubeService
 from .base import BasePlatformService
 
-# Можно добавить фабрику для выбора сервиса по платформе
+# TODO добавить полноценную фабрику для выбора сервиса по платформе и возможно определисть некоторые функции в общие
 PLATFORM_SERVICES = {
     'spotify': SpotifyService,
     'yandex': YandexMusicService,

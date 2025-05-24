@@ -21,15 +21,6 @@ class YouTubeService(BasePlatformService):
             return None
         return service.access_token
 
-    def _get_external_user_id(self):
-        service = self.db.query(ConnectedService).filter_by(user_id=self.user_id, platform="youtube").first()
-        if not service:
-            return None
-        return service.external_user_id
-
-    def _headers(self):
-        return {"Authorization": f"Bearer {self.token}"}
-
     def _refresh_token(self):
         service = self.db.query(ConnectedService).filter_by(user_id=self.user_id, platform="youtube").first()
         if not service or not service.refresh_token:
@@ -52,6 +43,15 @@ class YouTubeService(BasePlatformService):
             return True
         logging.error(f"[YOUTUBE] Не удалось обновить access_token для user_id={self.user_id}")
         return False
+
+    def _get_external_user_id(self):
+        service = self.db.query(ConnectedService).filter_by(user_id=self.user_id, platform="youtube").first()
+        if not service:
+            return None
+        return service.external_user_id
+
+    def _headers(self):
+        return {"Authorization": f"Bearer {self.token}"}
 
     def get_playlists(self, limit=50):
         if not self.token:
@@ -96,14 +96,16 @@ class YouTubeService(BasePlatformService):
 
     def sync_user_playlists_and_favorites(self):
         session = self.db
-        # Получаем только те плейлисты, которые пользователь импортировал (есть в БД)
         db_playlists = session.query(UserPlaylist).filter_by(user_id=self.user_id, source_platform="youtube").all()
-        # Получаем актуальные данные о плейлистах с YouTube (id -> данные)
         youtube_playlists = {pl["id"]: pl for pl in self.get_playlists()}
         for db_pl in db_playlists:
             pl_data = youtube_playlists.get(db_pl.external_id)
             if not pl_data:
-                continue  # Плейлист был удалён на YouTube, но оставляем в БД
+                # Плейлист был удалён на YouTube — удаляем из БД и чистим связи
+                session.query(PlaylistTrack).filter(PlaylistTrack.playlist_id == db_pl.id).delete()
+                session.delete(db_pl)
+                session.commit()
+                continue
             tracks = self.get_playlist_tracks(db_pl.external_id)
             db_pl.title = pl_data["title"]
             db_pl.description = pl_data.get("description")
@@ -162,6 +164,7 @@ class YouTubeService(BasePlatformService):
         }
 
     def get_playlist_tracks(self, playlist_id, limit=100):
+        # --- Получение треков для плейлиста из бд ---
         if not self.token:
             return []
         tracks = []
@@ -301,7 +304,7 @@ class YouTubeService(BasePlatformService):
 
     def save_selected_playlists(self, playlists_data):
         session = self.db
-        seen_availability = set()  # Кэш для уникальных (track_id, platform) за одну транзакцию
+        seen_availability = set()
         for pl in playlists_data:
             db_pl = session.query(UserPlaylist).filter_by(user_id=self.user_id, external_id=pl["id"], source_platform="youtube").first()
             tracks = pl.get("tracks", [])
@@ -362,7 +365,6 @@ class YouTubeService(BasePlatformService):
                         order_index=idx
                     ))
                     seen_track_ids.add(db_track.id)
-                # если повтор, просто пропускаем (order_index не пропускаем, он просто не будет соответствовать позиции в исходном плейлисте)
             session.commit()
         # Сохраняем "Liked songs" как избранное
         liked = self.get_liked_playlist_info()
@@ -380,4 +382,13 @@ class YouTubeService(BasePlatformService):
                 tracks_number=len(liked_tracks),
                 updated_at=datetime.utcnow()
             ))
+            session.commit()
+
+    def delete_playlist_by_external_id(self, external_id):
+        # Удаляет плейлист пользователя по external_id (YouTube id) и user_id, а также все PlaylistTrack для этого плейлиста.
+        session = self.db
+        db_pl = session.query(UserPlaylist).filter_by(user_id=self.user_id, external_id=external_id, source_platform="youtube").first()
+        if db_pl:
+            session.query(PlaylistTrack).filter(PlaylistTrack.playlist_id == db_pl.id).delete()
+            session.delete(db_pl)
             session.commit()

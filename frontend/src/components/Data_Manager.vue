@@ -1,24 +1,39 @@
 <template>
   <div class="data-manager">
-    <div class="dm-header">
-      <img :src="iconUrl" class="dm-icon" />
-      <span class="dm-title">{{ serviceName }} Data</span>
-    </div>
-    <div class="dm-info">
-      <span class="dm-playlists">Playlists in Orbitune: <b>{{ playlistsCount }}</b></span>
-    </div>
-    <button class="dm-btn" :disabled="loading" @click="syncData">
-      <template v-if="loading">
-        <img src="https://img.icons8.com/?size=100&id=8zSWPHqkpHQ5&format=png&color=ffffff" class="dm-loader" />
-        synchronization
-      </template>
-      <template v-else>
-        Update data
-      </template>
-    </button>
-    <button v-if="service==='youtube'" class="dm-btn import-btn" @click="goToImport">
-      Import
-    </button>
+    <img :src="iconUrl" class="dm-icon" />
+    <section>
+      <div class="dm-data">
+        <div class="dm-header">
+          <span class="dm-title">{{ serviceName }} Data</span>
+        </div>
+        <div class="dm-info">
+          <span class="dm-playlists">Playlists in Orbitune: <b>{{ playlistsCount }}</b></span>
+        </div>
+      </div>
+      <div class="dm-controller">
+        <div class="dm-actions">
+          <button class="dm-btn">
+            Autoupdate
+            <div class="autoupdate-indicator" />
+          </button>
+          <button class="dm-btn" :disabled="loading" @click="syncData">
+            <template v-if="loading">
+              <img src="https://img.icons8.com/?size=100&id=8zSWPHqkpHQ5&format=png&color=ffffff" class="dm-loader" />
+              synchronization
+            </template>
+            <template v-else>
+              Force Update
+            </template>
+          </button>
+        </div>
+        <div class="dm-actions">
+          <button v-if="service==='youtube'" class="dm-btn import-btn" @click="goToImport">
+            Import
+          </button>
+          <span v-else class="import-placeholder"></span>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -57,7 +72,6 @@ onMounted(async () => {
   try {
     await servicesStore.fetchPlaylists(userId, props.service);
     const pls = servicesStore.playlists[props.service] || [];
-    // Фильтрация спецплейлистов (например, Liked Songs) — как раньше
     let filtered = pls;
     if (props.service === 'spotify') {
       filtered = pls.filter(pl => (pl.external_id !== 'liked' && pl.title?.toLowerCase() !== 'liked songs'));
@@ -83,21 +97,37 @@ async function syncData() {
 }
 function goToImport() {
   const nickname = userStore.currentUser?.nickname || 'user';
-  router.push(`/${nickname}/youtube_transfer`);
+  router.push({ path: `/${nickname}/youtube_transfer`, query: { from: 'settings' } });
 }
 </script>
 
 <style scoped>
 .data-manager {
-  background: rgba(255,255,255,0.08);
+  position: relative;
+  border: 2px solid rgba(255,255,255,0.33);
   border-radius: 14px;
-  padding: 18px 24px 18px 24px;
+  padding: 16px 24px 16px 24px;
   margin-bottom: 18px;
   box-shadow: 0 2px 12px 0 rgba(0,0,0,0.04);
   display: flex;
+  flex-direction: row;
+  gap: 16px;
+  align-items: center;
+}
+.data-manager section {
+  display: flex;
+  width: calc(100% - 48px - 16px);
+  flex-direction: row;
+  justify-content: space-between;
+}
+.dm-data {
+  display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 12px;
+  justify-content: center;
+}
+.dm-controller {
+  display: flex;
+  flex-direction: column;
 }
 .dm-header {
   display: flex;
@@ -105,41 +135,60 @@ function goToImport() {
   gap: 12px;
 }
 .dm-icon {
-  width: 36px;
-  height: 36px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   background: #222;
 }
 .dm-title {
-  font-size: 1.2em;
+  font-size: 1.4em;
   font-weight: 600;
 }
 .dm-info {
   font-size: 1.08em;
   color: #bbb;
 }
+.dm-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+}
 .dm-btn {
-  margin-top: 4px;
-  padding: 8px 22px;
-  border-radius: 10px;
-  background: #1db954;
+  width: 140px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0;
+  padding: 6px 16px;
   color: #fff;
-  font-weight: bold;
-  border: none;
-  font-size: 1.08em;
+  font-size: 1.1em;
+  background: rgba(255, 255, 255, 0.01);
+  border-radius: 10px;
+  box-shadow: 0 2px 32px 0 rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(8px) saturate(1);
+  border: 1px solid rgba(255,255,255,0.33);
   cursor: pointer;
   transition: background 0.18s;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 16px;
+}
+.dm-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
 }
 .dm-btn:disabled {
   background: #444;
   cursor: not-allowed;
 }
+.autoupdate-indicator {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #1db954;
+}
 .import-btn {
-  background: #1a73e8;
-  margin-left: 8px;
+  margin-top: 8px;
 }
 .dm-loader {
   width: 22px;

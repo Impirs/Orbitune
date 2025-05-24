@@ -8,37 +8,52 @@
             <div v-else-if="error" class="error-block">{{ error }}</div>
             <div v-else class="playlist-list">
                 <div v-for="pl in playlists" :key="pl.id" class="playlist-row">
-                <input type="checkbox"
-                        v-model="selected"
-                        :value="pl.id"
-                        :disabled="importedIds.includes(pl.id)" />
-                <img :src="pl.cover_url || fallbackCover" class="playlist-cover" />
-                <div class="playlist-info">
-                    <h3 class="playlist-title">{{ pl.title }}</h3>
-                    <span v-if="importedIds.includes(pl.id)" style="color:#1db954;font-size:0.98em;">Already imported</span>
-                </div>
-                <span class="playlist-count">{{ pl.tracks_count }} tracks</span>
+                    <input type="checkbox"
+                        :checked="isChecked(pl.id)"
+                        @change="() => toggleCheckbox(pl.id)"
+                        :style="checkboxStyle(pl.id)"
+                    />
+                    <img :src="pl.cover_url || fallbackCover" class="playlist-cover" />
+                    <div class="playlist-info">
+                        <h3 class="playlist-title">{{ pl.title }}</h3>
+                        <span v-if="importedIds.includes(pl.id)" :style="importedLabelStyle(pl.id)">
+                            {{ importedLabel(pl.id) }}
+                        </span>
+                    </div>
+                    <span class="playlist-count">{{ pl.tracks_count }} tracks</span>
                 </div>
             </div>
             <div class="transfer-contoller">
-                <button class="cancel-btn">Cancel</button>
-                <button class="import-btn" :disabled="selected.length === 0 || importing" @click="importSelected">Import Selected</button>
+                <button v-if="showCancel" class="cancel-btn" @click="goBack">Cancel</button>
+                <button class="import-btn" :disabled="importing || (((toImport?.value?.length || 0) === 0) && ((toDelete?.value?.length || 0) === 0))" @click="importSelected">
+                    Apply Changes
+                </button>
             </div>
         </div>
     </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import axios from 'axios';
 
 const playlists = ref([]);
-const selected = ref([]);
 const importedIds = ref([]); // store already imported external_ids
 const loading = ref(true);
 const error = ref('');
 const importing = ref(false);
 const fallbackCover = new URL('../../assets/music_universe.png', import.meta.url).href;
+const route = useRoute();
+const router = useRouter();
+
+// --- определяем источник перехода ---
+const from = ref(route.query.from || 'settings');
+const showCancel = computed(() => from.value === 'settings');
+
+// --- состояние чекбоксов ---
+// { [id]: 'import' | 'ignore' | 'keep' | 'delete' }
+const checkboxState = ref({});
 
 onMounted(async () => {
     loading.value = true;
@@ -53,8 +68,14 @@ onMounted(async () => {
         // 2. Fetch YouTube playlists from API
         const res = await axios.get(`/youtube/fetch_temp_data?user_id=${userId}`, { withCredentials: true });
         playlists.value = res.data.playlists || [];
-        // 3. Mark already imported playlists as selected
-        selected.value = playlists.value.filter(pl => importedIds.value.includes(pl.id)).map(pl => pl.id);
+        // 3. Инициализация состояния чекбоксов
+        playlists.value.forEach(pl => {
+            if (importedIds.value.includes(pl.id)) {
+                checkboxState.value[pl.id] = 'keep'; // уже импортирован — оставить
+            } else {
+                checkboxState.value[pl.id] = 'ignore'; // не импортирован — не импортировать
+            }
+        });
     } catch (e) {
         error.value = e?.response?.data?.detail || e?.message || 'Failed to load playlists';
     } finally {
@@ -62,16 +83,63 @@ onMounted(async () => {
     }
 });
 
+function isChecked(id) {
+    // Для новых: import — true, ignore — false
+    // Для импортированных: keep — true, delete — false
+    return checkboxState.value[id] === 'import' || checkboxState.value[id] === 'keep';
+}
+function checkboxStyle(id) {
+    if (importedIds.value.includes(id)) {
+        // Импортированные: зелёный если keep, красный если delete
+        return checkboxState.value[id] === 'keep' ? 'accent-color:#3fb758;' : 'accent-color:#ea1644;';
+    } else {
+        // Новые: зелёный если import, прозрачный если ignore
+        return checkboxState.value[id] === 'import' ? 'accent-color:#3fb758;' : 'accent-color:transparent;';
+    }
+}
+function importedLabel(id) {
+    if (!importedIds.value.includes(id)) return '';
+    return checkboxState.value[id] === 'keep' ? 'Already imported' : 'Will be deleted';
+}
+function importedLabelStyle(id) {
+    if (!importedIds.value.includes(id)) return '';
+    return checkboxState.value[id] === 'keep' ? 'color:#1db954;' : 'color:#ea1644;';
+}
+function toggleCheckbox(id) {
+    if (importedIds.value.includes(id)) {
+        // Импортированные: keep <-> delete
+        checkboxState.value[id] = checkboxState.value[id] === 'keep' ? 'delete' : 'keep';
+    } else {
+        // Новые: import <-> ignore
+        checkboxState.value[id] = checkboxState.value[id] === 'import' ? 'ignore' : 'import';
+    }
+}
+function goBack() {
+    router.back();
+}
+
+const toImport = computed(() => Array.isArray(playlists.value)
+    ? playlists.value.filter(pl => !importedIds.value.includes(pl.id) && checkboxState.value[pl.id] === 'import')
+    : []);
+const toDelete = computed(() => Array.isArray(playlists.value)
+    ? playlists.value.filter(pl => importedIds.value.includes(pl.id) && checkboxState.value[pl.id] === 'delete')
+    : []);
+
 async function importSelected() {
-    if (!selected.value.length) return;
+    if (importing.value) return;
     importing.value = true;
     try {
-        // только выбранные плейлисты   
         const user = JSON.parse(localStorage.getItem('currentUser'));
         const userId = user?.id;
         if (!userId) throw new Error('User not found');
-        const selectedPlaylists = playlists.value.filter(pl => selected.value.includes(pl.id));
-        await axios.post('/youtube/import_playlists', { user_id: userId, playlists: selectedPlaylists }, { withCredentials: true });
+        // Удаление отмеченных на удаление
+        for (const pl of toDelete.value) {
+            await axios.post('/youtube/delete_playlist', { user_id: userId, external_id: pl.id }, { withCredentials: true });
+        }
+        // Импорт отмеченных
+        if (toImport.value.length > 0) {
+            await axios.post('/youtube/import_playlists', { user_id: userId, playlists: toImport.value }, { withCredentials: true });
+        }
         window.location.href = `/${user?.nickname || 'user'}/home`;
     } catch (e) {
         error.value = e?.response?.data?.detail || e?.message || 'Import failed';
@@ -190,8 +258,10 @@ async function importSelected() {
     cursor: not-allowed;
 }
 .loader, .error-block {
-    margin: 32px 0;
-    text-align: center;
+    display: flex;
+    height: calc(100% - 52px);
+    align-items: center;
+    justify-content: center;
     color: #bbb;
 }
 .error-block {
