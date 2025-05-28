@@ -23,6 +23,20 @@
 
 ---
 
+Already added:
+Welcome page, registration and login to the service. Connecting Spotify and YouTube using oauth with synchronization of playlists and added music.
+
+![image](https://github.com/user-attachments/assets/90c8f291-7068-44a2-8e8a-278770b3c9e2)
+
+![image](https://github.com/user-attachments/assets/6afec1ed-49a5-424b-a3f8-da8141781f90)
+
+![image](https://github.com/user-attachments/assets/ee7b158e-0c91-4891-b263-0df5ebf9a8b9)
+For YouTube, the user selects which playlists to import into Orbitune to control that the service stores music.
+
+It is planned to add platform players, as well as connect new music platforms.
+
+---
+
 ## Quick Start (Docker)
 
 ``` bash
