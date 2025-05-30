@@ -12,9 +12,9 @@
       </div>
       <div class="dm-controller">
         <div class="dm-actions">
-          <button class="dm-btn">
+          <button class="dm-btn" @click="toggleAutoupdate">
             Autoupdate
-            <div class="autoupdate-indicator" />
+            <div class="autoupdate-indicator" :class="{'off': !autoupdateEnabled}" />
           </button>
           <button class="dm-btn" :disabled="loading" @click="syncData">
             <template v-if="loading">
@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useUserStore } from '../stores/user';
 import { useServicesStore } from '../stores/services';
 import { useRouter } from 'vue-router';
@@ -66,6 +66,14 @@ const iconUrl = computed(() => {
   }
 });
 
+const autoupdateEnabled = computed(() => getSyncState());
+
+// Получаем sync из connectedServices
+function getSyncState() {
+  const service = userStore.connectedServices.find(s => s.platform === props.service);
+  return service ? service.sync !== false : true;
+}
+
 onMounted(async () => {
   if (!userStore.currentUser) return;
   const userId = userStore.currentUser.id;
@@ -86,10 +94,31 @@ onMounted(async () => {
   }
 });
 
+watch(() => userStore.connectedServices, () => {
+  // autoupdateEnabled теперь computed, не нужно обновлять вручную
+});
+
+async function toggleAutoupdate() {
+  if (!userStore.currentUser) return;
+  const userId = userStore.currentUser.id;
+  const newSync = !autoupdateEnabled.value;
+  try {
+    await fetch(`/connected_services/set_sync?user_id=${userId}&platform=${props.service}&sync=${newSync}`, {
+      method: 'POST'
+    });
+    await userStore.fetchConnectedServices(true);
+    // autoupdateEnabled теперь computed, не меняем вручную
+  } catch (e) {
+    // handle error
+  }
+}
+
 async function syncData() {
   loading.value = true;
   try {
-    await userStore.syncPlatform(props.service);
+    if (!userStore.currentUser) return;
+    const userId = userStore.currentUser.id;
+    await fetch(`/connected_services/sync?user_id=${userId}&platform=${props.service}`, { method: 'POST' });
     await userStore.fetchPlaylists(props.service);
   } finally {
     loading.value = false;
@@ -186,6 +215,10 @@ function goToImport() {
   height: 9px;
   border-radius: 50%;
   background: #1db954;
+  transition: background 0.2s;
+}
+.autoupdate-indicator.off {
+  background: #ff4444;
 }
 .import-btn {
   margin-top: 8px;

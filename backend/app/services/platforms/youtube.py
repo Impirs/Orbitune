@@ -1,15 +1,16 @@
+import os
+import logging
 import requests
+
 from datetime import datetime
 from app.models.models import UserPlaylist, PlaylistTrack, Track, TrackAvailability, UserFavorite, ConnectedService
 from sqlalchemy.orm import Session
-import os
-import logging
-
 from .base import BasePlatformService
 
-YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
 
 class YouTubeService(BasePlatformService):
+    YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
+
     def __init__(self, db: Session, user_id: int):
         super().__init__(db, user_id)
         self.token = self._get_token()
@@ -61,14 +62,16 @@ class YouTubeService(BasePlatformService):
         retried = False
         while url:
             resp = requests.get(url, headers=self._headers())
+            logging.info(f"[YOUTUBE] get_playlists status={resp.status_code} url={url} body={resp.text[:200]}")
             if resp.status_code == 401 and not retried:
                 if self._refresh_token():
                     retried = True
                     resp = requests.get(url, headers=self._headers())
+                    logging.info(f"[YOUTUBE] get_playlists (after refresh) status={resp.status_code} url={url} body={resp.text[:200]}")
                 else:
                     raise Exception("YouTube access token expired and refresh failed.")
             if resp.status_code != 200:
-                print("YouTube API error:", resp.status_code, resp.text)
+                logging.error(f"[YOUTUBE] YouTube API error: {resp.status_code} {resp.text}")
                 raise Exception(f"YouTube API error: {resp.status_code} {resp.text}")
             data = resp.json()
             for pl in data.get("items", []):
@@ -95,13 +98,16 @@ class YouTubeService(BasePlatformService):
         return self.get_playlist_tracks(liked_playlist["id"])
 
     def sync_user_playlists_and_favorites(self):
+        logging.info(f"[YOUTUBE SYNC] user_id={self.user_id} token={self.token}")
         session = self.db
         db_playlists = session.query(UserPlaylist).filter_by(user_id=self.user_id, source_platform="youtube").all()
         youtube_playlists = {pl["id"]: pl for pl in self.get_playlists()}
+        logging.info(f"[YOUTUBE SYNC] Получено плейлистов из YouTube: {len(youtube_playlists)}")
         for db_pl in db_playlists:
             pl_data = youtube_playlists.get(db_pl.external_id)
             if not pl_data:
                 # Плейлист был удалён на YouTube — удаляем из БД и чистим связи
+                logging.info(f"[YOUTUBE SYNC] Удалён плейлист {db_pl.external_id} из БД (не найден на YouTube)")
                 session.query(PlaylistTrack).filter(PlaylistTrack.playlist_id == db_pl.id).delete()
                 session.delete(db_pl)
                 session.commit()

@@ -33,6 +33,7 @@ class ConnectedService(Base):
     access_token = Column(String, nullable=False)
     refresh_token = Column(String)
     expires_at = Column(DateTime)
+    sync = Column(Boolean, default=True)
 
     user = relationship('User', back_populates='connected_services')
 

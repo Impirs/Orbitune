@@ -1,8 +1,11 @@
+import logging
 import requests
+
 from app.models.models import ConnectedService
 from sqlalchemy.orm import Session
 from datetime import datetime
 from .base import BasePlatformService
+
 
 class SpotifyService(BasePlatformService):
     BASE_URL = "https://api.spotify.com/v1"
@@ -143,7 +146,6 @@ class SpotifyService(BasePlatformService):
             }
 
     def sync_user_playlists_and_favorites(self):
-        import logging
         from app.models.models import UserPlaylist, UserFavorite, Track, PlaylistTrack, TrackAvailability
         logging.info(f"[SPOTIFY SYNC] user_id={self.user_id} token={self.token}")
         playlists = self.get_playlists()

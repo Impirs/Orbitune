@@ -19,6 +19,7 @@ def list_connected_services(user_id: int, db: Session = Depends(get_db)):
                 "external_user_id": s.external_user_id,
                 "is_connected": True,
                 "expires_at": s.expires_at,
+                "sync": s.sync,
             }
             try:
                 service = None
@@ -78,3 +79,12 @@ def sync_platform(user_id: int, platform: str, db: Session = Depends(get_db)):
     except Exception as e:
         logging.error(f"Error syncing {platform}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error syncing {platform}: {str(e)}")
+
+@router.post("/set_sync")
+def set_sync(user_id: int, platform: str, sync: bool, db: Session = Depends(get_db)):
+    service = db.query(ConnectedService).filter_by(user_id=user_id, platform=platform).first()
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    service.sync = sync
+    db.commit()
+    return {"ok": True, "sync": sync}

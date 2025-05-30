@@ -9,7 +9,7 @@
         <div class="settings-block">
           <div class="settings-subtitle">Your services</div>
           <div class="services-cards">
-            <div v-for="service in userStore.connectedServices" :key="service.platform" class="service-card" :class="service.platform" @mouseenter="hoveredService = service.platform" @mouseleave="hoveredService = null">
+            <div v-for="service in orderedConnectedServices" :key="service.platform" class="service-card" :class="service.platform" @mouseenter="hoveredService = service.platform" @mouseleave="hoveredService = null">
               <div class="service-card-inner">
                 <div class="service-icon">
                   <img :src="getServiceIcon(service.platform)" :alt="service.platform" />
@@ -38,7 +38,7 @@
           <div class="settings-subtitle">Data</div>
           <div>
             <Data_Manager
-              v-for="service in userStore.connectedServices"
+              v-for="service in orderedConnectedServices"
               :key="service.platform"
               :service="service.platform"
             />
@@ -86,16 +86,23 @@ const hoveredService = ref(null);
 const addServicesOpen = ref(false);
 
 const availableServices = [
-  { platform: 'spotify', name: 'Spotify' },
-  { platform: 'deezer', name: 'Deezer' },
-  { platform: 'youtube', name: 'Youtube' },
   { platform: 'apple', name: 'Apple' },
   { platform: 'soundcloud', name: 'SoundCloud' },
+  { platform: 'spotify', name: 'Spotify' },
+  { platform: 'youtube', name: 'Youtube' },
+  { platform: 'deezer', name: 'Deezer' },
 ];
 
 const filteredAvailableServices = computed(() => {
   const connected = userStore.connectedServices.map(s => s.platform);
   return availableServices.filter(srv => !connected.includes(srv.platform));
+});
+
+const orderedConnectedServices = computed(() => {
+  // Сортируем подключённые сервисы по порядку в availableServices
+  return availableServices
+    .map(srv => userStore.connectedServices.find(cs => cs.platform === srv.platform))
+    .filter(Boolean);
 });
 
 const addServiceCardWidth = computed(() => {
