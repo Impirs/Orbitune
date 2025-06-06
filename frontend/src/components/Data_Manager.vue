@@ -34,6 +34,9 @@
         </div>
       </div>
     </section>
+    <div v-if="lostConnection" class="lost-connection-alert">
+      Unfortunately, the connection to the service "{{ serviceName }}" was lost. Please reconnect your account.
+    </div>
   </div>
 </template>
 
@@ -42,6 +45,7 @@ import { ref, computed, onMounted, watch } from 'vue';
 import { useUserStore } from '../stores/user';
 import { useServicesStore } from '../stores/services';
 import { useRouter } from 'vue-router';
+
 const props = defineProps({
   service: { type: String, required: true }
 });
@@ -50,11 +54,15 @@ const servicesStore = useServicesStore();
 const router = useRouter();
 const loading = ref(false);
 const playlistsCount = ref('…');
+const lostConnection = ref(false);
 
 const serviceName = computed(() => {
   switch (props.service) {
     case 'spotify': return 'Spotify';
     case 'youtube': return 'YouTube';
+    case 'deezer': return 'Deezer';
+    case 'apple': return 'Apple';
+    case 'soundcloud': return 'SoundCloud';
     default: return props.service;
   }
 });
@@ -68,7 +76,6 @@ const iconUrl = computed(() => {
 
 const autoupdateEnabled = computed(() => getSyncState());
 
-// Получаем sync из connectedServices
 function getSyncState() {
   const service = userStore.connectedServices.find(s => s.platform === props.service);
   return service ? service.sync !== false : true;
@@ -91,11 +98,18 @@ onMounted(async () => {
     playlistsCount.value = filtered.length;
   } catch (e) {
     playlistsCount.value = '?';
+    // Если сервис пропал из userStore.connectedServices, показываем уведомление
+    if (!userStore.connectedServices.find(s => s.platform === props.service)) {
+      lostConnection.value = true;
+    }
   }
 });
 
 watch(() => userStore.connectedServices, () => {
   // autoupdateEnabled теперь computed, не нужно обновлять вручную
+  if (!userStore.connectedServices.find(s => s.platform === props.service)) {
+    lostConnection.value = true;
+  }
 });
 
 async function toggleAutoupdate() {
@@ -228,5 +242,14 @@ function goToImport() {
   height: 22px;
   margin-right: 6px;
   vertical-align: middle;
+}
+.lost-connection-alert {
+  margin-top: 16px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-left: 4px solid #ff4444;
+  color: #ff4444;
+  border-radius: 8px;
+  font-size: 0.9em;
 }
 </style>

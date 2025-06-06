@@ -171,7 +171,7 @@ watch(
   flex-direction: column;
   position: relative;
   width: calc(100% - 70px);
-  height: calc(100% - 64px);
+  height: calc(100% - 54px);
   gap: 0;
   color: #fff;
   background: rgba(255, 255, 255, 0.15);
@@ -181,7 +181,7 @@ watch(
   border: 1px solid rgba(255,255,255,0.33);
   min-height: 0;
   min-width: 0;
-  padding: 32px 30px 32px 40px;
+  padding: 22px 30px 32px 40px;
 }
 .settings-header h2 {
   font-size: 3em;

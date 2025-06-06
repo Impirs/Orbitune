@@ -7,9 +7,9 @@ from app.models.models import UserPlaylist, PlaylistTrack, Track, TrackAvailabil
 from sqlalchemy.orm import Session
 from .base import BasePlatformService
 
+YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
 
 class YouTubeService(BasePlatformService):
-    YOUTUBE_API_BASE = "https://www.googleapis.com/youtube/v3"
 
     def __init__(self, db: Session, user_id: int):
         super().__init__(db, user_id)
@@ -34,7 +34,7 @@ class YouTubeService(BasePlatformService):
             "grant_type": "refresh_token"
         }
         resp = requests.post("https://oauth2.googleapis.com/token", data=data)
-        logging.info(f"[YOUTUBE] refresh_token status={resp.status_code} body={resp.text[:200]}")
+        logging.info(f"[YOUTUBE] refresh_token status={resp.status_code} body={resp.text[:500]}")
         if resp.status_code == 200:
             tokens = resp.json()
             service.access_token = tokens["access_token"]
@@ -42,7 +42,13 @@ class YouTubeService(BasePlatformService):
             self.token = tokens["access_token"]
             logging.info(f"[YOUTUBE] access_token обновлён для user_id={self.user_id}")
             return True
-        logging.error(f"[YOUTUBE] Не удалось обновить access_token для user_id={self.user_id}")
+        else:
+            logging.error(f"[YOUTUBE] Не удалось обновить access_token для user_id={self.user_id}. Ответ: {resp.text}")
+            # Удаляем сервис если refresh_token невалиден
+            if resp.status_code == 400 and "invalid_grant" in resp.text:
+                self.db.query(ConnectedService).filter_by(user_id=self.user_id, platform="youtube").delete()
+                self.db.commit()
+                logging.warning(f"[YOUTUBE] ConnectedService удалён для user_id={self.user_id} из-за невалидного refresh_token")
         return False
 
     def _get_external_user_id(self):
