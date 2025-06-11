@@ -3,6 +3,7 @@ frontend/node_modules/
 frontend/src/assets
 frontend/.env
 frontend/.env.*
+frontend/vite.config.js
 
 # Python
 backend/venv/
@@ -12,11 +13,15 @@ backend/app/__pycache__/
 backend/app/models/__pycache__/
 backend/app/routers/__pycache__/
 backend/app/services/__pycache__/
+backend/app/services/platforms/__pycache__/
 backend/.env
 backend/.env.*
 
 # Docker volumes
 postgres_data/
+*.yml
+nginx.conf
+Dockerfile
 
 # IDE
 .vscode/
