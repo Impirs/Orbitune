@@ -37,8 +37,8 @@ It is planned to add platform players, as well as connect new music platforms.
 
 ---
 
-## Quick Start (Docker)
+## Quick Start (local setup with Docker)
 
-``` bash
-docker-compose up --build
-```
+If you want to test the operation of this site, then cloning the repository will not be enough, because the cache, migrations, as well as docker and vit configurations are not saved to it. To configure the relevant files, go to the guide below:
+
+[Project configuration setup](setup.md)
